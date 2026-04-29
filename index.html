@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<!-- 手机适配关键代码 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>马迹山库存管理</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{padding:10px;font-family:微软雅黑;background:#f5f5f5;font-size:14px;}
+.container{max-width:100%;margin:0 auto;background:#fff;padding:15px;border-radius:8px;}
+h2{text-align:center;margin-bottom:15px;color:#333;font-size:18px;}
+.tab{display:flex;border-bottom:1px solid #ccc;margin-bottom:15px;flex-wrap:wrap;}
+.tab-item{padding:8px 10px;cursor:pointer;font-size:13px;}
+.tab-item.active{border-bottom:2px solid #007bff;color:#007bff;font-weight:bold;}
+.box{display:none;}
+.box.show{display:block;}
+input,select,button{padding:8px;margin:3px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;max-width:280px;}
+button{background:#007bff;color:white;border:none;cursor:pointer;}
+.del-row{background:#dc3545;padding:4px 6px;font-size:12px;}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;}
+th,td{border:1px solid #ccc;padding:6px 2px;text-align:center;}
+th{background:#eee;}
+.warn{color:red;font-weight:bold;}
+.tip{font-size:12px;color:#666;margin-left:4px;}
+.search-box{width:100%;max-width:300px;margin-bottom:10px;}
+</style>
+</head>
+<body>
+<div class="container">
+    <h2>马迹山仓库</h2>
+
+    <div class="tab">
+        <div class="tab-item active" onclick="switchTab(0)">物料管理</div>
+        <div class="tab-item" onclick="switchTab(1)">入库登记</div>
+        <div class="tab-item" onclick="switchTab(2)">出库登记</div>
+        <div class="tab-item" onclick="switchTab(3)">库存列表</div>
+        <div class="tab-item" onclick="switchTab(4)">入库流水</div>
+        <div class="tab-item" onclick="switchTab(5)">出库流水</div>
+    </div>
+
+    <div class="box show" id="box0">
+        <h4>新增物料</h4>
+        <input type="text" id="mName" placeholder="物料名称">
+        <input type="text" id="mCate" placeholder="分类">
+        <input type="text" id="mSpec" placeholder="规格">
+        <input type="text" id="mUnit" placeholder="单位">
+        <input type="number" id="mMin" placeholder="最低预警库存">
+        <button onclick="addMaterial()">添加</button>
+        <table id="materialTable"></table>
+    </div>
+
+    <div class="box" id="box1">
+        <h4>物料入库</h4>
+        <select id="inGoods"></select>
+        <input type="number" id="inNum" placeholder="入库数量">
+        <input type="text" id="inPerson" placeholder="入库人">
+        <input type="datetime-local" id="inTime">
+        <div class="tip">不选时间默认当前时间</div>
+        <input type="text" id="inRemark" placeholder="备注">
+        <button onclick="stockIn()">确认入库</button>
+    </div>
+
+    <div class="box" id="box2">
+        <h4>物料出库</h4>
+        <select id="outGoods"></select>
+        <input type="number" id="outNum" placeholder="出库数量">
+        <input type="text" id="outPerson" placeholder="出库人">
+        <input type="datetime-local" id="outTime">
+        <div class="tip">不选时间默认当前时间</div>
+        <input type="text" id="outRemark" placeholder="用途备注">
+        <button onclick="stockOut()">确认出库</button>
+    </div>
+
+    <div class="box" id="box3">
+        <h4>当前库存（红色为库存不足）</h4>
+        <input class="search-box" type="text" id="stockSearch" placeholder="搜索物料名称/分类" oninput="renderStock()">
+        <table id="stockTable"></table>
+    </div>
+
+    <div class="box" id="box4">
+        <h4>入库流水记录</h4>
+        <table id="inLogTable"></table>
+    </div>
+
+    <div class="box" id="box5">
+        <h4>出库流水记录</h4>
+        <table id="outLogTable"></table>
+    </div>
+</div>
+
+<script>
+let material = JSON.parse(localStorage.getItem('material')) || [];
+let inLog = JSON.parse(localStorage.getItem('inLog')) || [];
+let outLog = JSON.parse(localStorage.getItem('outLog')) || [];
+
+function switchTab(idx){
+    document.querySelectorAll('.box').forEach(el=>el.classList.remove('show'));
+    document.querySelectorAll('.tab-item').forEach((el,i)=>{
+        i===idx ? el.classList.add('active') : el.classList.remove('active');
+    });
+    document.getElementById('box'+idx).classList.add('show');
+    if(idx===0) renderMaterial();
+    if(idx===3) renderStock();
+    if(idx===4) renderInLog();
+    if(idx===5) renderOutLog();
+    if(idx===1||idx===2) renderSelect();
+}
+
+function addMaterial(){
+    let name = document.getElementById('mName').value.trim();
+    let cate = document.getElementById('mCate').value.trim();
+    let spec = document.getElementById('mSpec').value.trim();
+    let unit = document.getElementById('mUnit').value.trim();
+    let minStock = parseInt(document.getElementById('mMin').value) || 0;
+
+    if(!name){alert('请输入物料名称');return;}
+    material.push({
+        id:Date.now(),
+        name,cate,spec,unit,
+        stock:0,
+        min:minStock
+    });
+    saveData();
+    renderMaterial();
+    alert('添加成功');
+    document.querySelectorAll('#box0 input').forEach(el=>el.value='');
+}
+
+function saveData(){
+    localStorage.setItem('material',JSON.stringify(material));
+    localStorage.setItem('inLog',JSON.stringify(inLog));
+    localStorage.setItem('outLog',JSON.stringify(outLog));
+}
+
+function delInLogRow(index){
+    if(confirm('确定删除这条入库记录？')){
+        inLog.splice(index,1);
+        saveData();
+        renderInLog();
+    }
+}
+
+function delOutLogRow(index){
+    if(confirm('确定删除这条出库记录？')){
+        outLog.splice(index,1);
+        saveData();
+        renderOutLog();
+    }
+}
+
+function renderMaterial(){
+    let html = '<tr><th>名称</th><th>分类</th><th>规格</th><th>单位</th><th>预警</th><th>操作</th></tr>';
+    material.forEach((item,idx)=>{
+        html += `<tr>
+            <td>${item.name}</td>
+            <td>${item.cate}</td>
+            <td>${item.spec}</td>
+            <td>${item.unit}</td>
+            <td>${item.min}</td>
+            <td><button class="del-row" onclick="delMaterial(${idx})">删除</button></td>
+        </tr>`;
+    });
+    document.getElementById('materialTable').innerHTML = html;
+}
+
+function delMaterial(idx){
+    if(confirm('确定删除？')){
+        material.splice(idx,1);
+        saveData();
+        renderMaterial();
+    }
+}
+
+function renderSelect(){
+    let opt = '<option value="">请选择物料</option>';
+    material.forEach(item=>{
+        opt += `<option value="${item.id}">${item.name}</option>`;
+    });
+    document.getElementById('inGoods').innerHTML = opt;
+    document.getElementById('outGoods').innerHTML = opt;
+}
+
+function stockIn(){
+    let id = parseInt(document.getElementById('inGoods').value);
+    let num = parseInt(document.getElementById('inNum').value);
+    let person = document.getElementById('inPerson').value.trim();
+    let customTime = document.getElementById('inTime').value;
+    let remark = document.getElementById('inRemark').value.trim();
+
+    if(!id||!num||num<=0||!person){alert('请完善物料、数量、入库人');return;}
+
+    let item = material.find(x=>x.id===id);
+    item.stock += num;
+
+    let timeStr = customTime ? customTime : new Date().toLocaleString();
+
+    inLog.unshift({
+        time:timeStr,
+        name:item.name,
+        num:num,
+        person:person,
+        remark:remark
+    });
+    saveData();
+    alert('入库成功');
+    document.getElementById('inNum').value='';
+    document.getElementById('inPerson').value='';
+    document.getElementById('inTime').value='';
+    document.getElementById('inRemark').value='';
+}
+
+function stockOut(){
+    let id = parseInt(document.getElementById('outGoods').value);
+    let num = parseInt(document.getElementById('outNum').value);
+    let person = document.getElementById('outPerson').value.trim();
+    let customTime = document.getElementById('outTime').value;
+    let remark = document.getElementById('outRemark').value.trim();
+
+    if(!id||!num||num<=0||!person){alert('请完善物料、数量、出库人');return;}
+
+    let item = material.find(x=>x.id===id);
+    if(item.stock < num){alert('库存不足');return;}
+    item.stock -= num;
+
+    let timeStr = customTime ? customTime : new Date().toLocaleString();
+
+    outLog.unshift({
+        time:timeStr,
+        name:item.name,
+        num:num,
+        person:person,
+        remark:remark
+    });
+    saveData();
+    alert('出库成功');
+    document.getElementById('outNum').value='';
+    document.getElementById('outPerson').value='';
+    document.getElementById('outTime').value='';
+    document.getElementById('outRemark').value='';
+}
+
+function renderStock(){
+    let key = document.getElementById('stockSearch').value.toLowerCase();
+    let html = '<tr><th>名称</th><th>分类</th><th>库存</th><th>预警</th></tr>';
+    material.forEach(item=>{
+        if(item.name.toLowerCase().includes(key) || item.cate.toLowerCase().includes(key)){
+            let cls = item.stock <= item.min ? 'warn' : '';
+            html += `<tr>
+                <td>${item.name}</td>
+                <td>${item.cate}</td>
+                <td class="${cls}">${item.stock}</td>
+                <td>${item.min}</td>
+            </tr>`;
+        }
+    });
+    document.getElementById('stockTable').innerHTML = html;
+}
+
+function renderInLog(){
+    let html = '<tr><th>时间</th><th>物料</th><th>数量</th><th>操作</th></tr>';
+    inLog.forEach((item, idx)=>{
+        html += `<tr>
+            <td>${item.time}</td>
+            <td>${item.name}</td>
+            <td>${item.num}</td>
+            <td><button class="del-row" onclick="delInLogRow(${idx})">删除</button></td>
+        </tr>`;
+    });
+    document.getElementById('inLogTable').innerHTML = html;
+}
+
+function renderOutLog(){
+    let html = '<tr><th>时间</th><th>物料</th><th>数量</th><th>操作</th></tr>';
+    outLog.forEach((item, idx)=>{
+        html += `<tr>
+            <td>${item.time}</td>
+            <td>${item.name}</td>
+            <td>${item.num}</td>
+            <td><button class="del-row" onclick="delOutLogRow(${idx})">删除</button></td>
+        </tr>`;
+    });
+    document.getElementById('outLogTable').innerHTML = html;
+}
+
+renderMaterial();
+renderSelect();
+</script>
+</body>
+</html>
