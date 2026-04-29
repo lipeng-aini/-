@@ -2,8 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<!-- 手机适配关键代码 -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>马迹山库存管理</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -17,7 +16,7 @@ h2{text-align:center;margin-bottom:15px;color:#333;font-size:18px;}
 .box.show{display:block;}
 input,select,button{padding:8px;margin:3px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;max-width:280px;}
 button{background:#007bff;color:white;border:none;cursor:pointer;}
-.del-row{background:#dc3545;padding:4px 6px;font-size:12px;}
+.del-row{background:#dc3545;padding:4px 6px;font-size:12px;border:none;border-radius:3px;color:#fff;}
 table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;}
 th,td{border:1px solid #ccc;padding:6px 2px;text-align:center;}
 th{background:#eee;}
@@ -29,7 +28,6 @@ th{background:#eee;}
 <body>
 <div class="container">
     <h2>马迹山仓库</h2>
-
     <div class="tab">
         <div class="tab-item active" onclick="switchTab(0)">物料管理</div>
         <div class="tab-item" onclick="switchTab(1)">入库登记</div>
@@ -57,7 +55,7 @@ th{background:#eee;}
         <input type="text" id="inPerson" placeholder="入库人">
         <input type="datetime-local" id="inTime">
         <div class="tip">不选时间默认当前时间</div>
-        <input type="text" id="inRemark" placeholder="备注">
+        <input type="text" id="inRemark" placeholder="存放楼层">
         <button onclick="stockIn()">确认入库</button>
     </div>
 
@@ -94,6 +92,12 @@ let material = JSON.parse(localStorage.getItem('material')) || [];
 let inLog = JSON.parse(localStorage.getItem('inLog')) || [];
 let outLog = JSON.parse(localStorage.getItem('outLog')) || [];
 
+function saveData(){
+    localStorage.setItem('material',JSON.stringify(material));
+    localStorage.setItem('inLog',JSON.stringify(inLog));
+    localStorage.setItem('outLog',JSON.stringify(outLog));
+}
+
 function switchTab(idx){
     document.querySelectorAll('.box').forEach(el=>el.classList.remove('show'));
     document.querySelectorAll('.tab-item').forEach((el,i)=>{
@@ -113,7 +117,6 @@ function addMaterial(){
     let spec = document.getElementById('mSpec').value.trim();
     let unit = document.getElementById('mUnit').value.trim();
     let minStock = parseInt(document.getElementById('mMin').value) || 0;
-
     if(!name){alert('请输入物料名称');return;}
     material.push({
         id:Date.now(),
@@ -127,164 +130,183 @@ function addMaterial(){
     document.querySelectorAll('#box0 input').forEach(el=>el.value='');
 }
 
-function saveData(){
-    localStorage.setItem('material',JSON.stringify(material));
-    localStorage.setItem('inLog',JSON.stringify(inLog));
-    localStorage.setItem('outLog',JSON.stringify(outLog));
-}
-
-function delInLogRow(index){
-    if(confirm('确定删除这条入库记录？')){
-        inLog.splice(index,1);
-        saveData();
-        renderInLog();
-    }
-}
-
-function delOutLogRow(index){
-    if(confirm('确定删除这条出库记录？')){
-        outLog.splice(index,1);
-        saveData();
-        renderOutLog();
-    }
-}
-
 function renderMaterial(){
-    let html = '<tr><th>名称</th><th>分类</th><th>规格</th><th>单位</th><th>预警</th><th>操作</th></tr>';
-    material.forEach((item,idx)=>{
-        html += `<tr>
+    let tab = document.getElementById('materialTable');
+    tab.innerHTML = '<tr><th>名称</th><th>分类</th><th>规格</th><th>单位</th><th>预警</th><th>操作</th></tr>';
+    material.forEach((item,index)=>{
+        let tr = document.createElement('tr');
+        tr.innerHTML = `
             <td>${item.name}</td>
             <td>${item.cate}</td>
             <td>${item.spec}</td>
             <td>${item.unit}</td>
             <td>${item.min}</td>
-            <td><button class="del-row" onclick="delMaterial(${idx})">删除</button></td>
-        </tr>`;
+            <td><button class="del-row" onclick="delMaterial(${index})">删除</button></td>
+        `;
+        tab.appendChild(tr);
     });
-    document.getElementById('materialTable').innerHTML = html;
 }
 
-function delMaterial(idx){
-    if(confirm('确定删除？')){
-        material.splice(idx,1);
+function delMaterial(index){
+    if(confirm('确定删除该物料？')){
+        material.splice(index,1);
         saveData();
         renderMaterial();
     }
 }
 
 function renderSelect(){
-    let opt = '<option value="">请选择物料</option>';
+    let inSel = document.getElementById('inGoods');
+    let outSel = document.getElementById('outGoods');
+    inSel.innerHTML = '<option value="">请选择物料</option>';
+    outSel.innerHTML = '<option value="">请选择物料</option>';
     material.forEach(item=>{
-        opt += `<option value="${item.id}">${item.name}</option>`;
+        inSel.innerHTML += `<option value="${item.id}">${item.name}-${item.spec}</option>`;
+        outSel.innerHTML += `<option value="${item.id}">${item.name}-${item.spec}</option>`;
     });
-    document.getElementById('inGoods').innerHTML = opt;
-    document.getElementById('outGoods').innerHTML = opt;
+}
+
+function getNowTime(){
+    let d = new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0')+" "+String(d.getHours()).padStart(2,'0')+":"+String(d.getMinutes()).padStart(2,'0');
 }
 
 function stockIn(){
     let id = parseInt(document.getElementById('inGoods').value);
     let num = parseInt(document.getElementById('inNum').value);
     let person = document.getElementById('inPerson').value.trim();
-    let customTime = document.getElementById('inTime').value;
+    let time = document.getElementById('inTime').value || getNowTime();
     let remark = document.getElementById('inRemark').value.trim();
-
-    if(!id||!num||num<=0||!person){alert('请完善物料、数量、入库人');return;}
-
-    let item = material.find(x=>x.id===id);
-    item.stock += num;
-
-    let timeStr = customTime ? customTime : new Date().toLocaleString();
-
+    if(!id || !num || num<=0){alert('请选择物料并输入有效数量');return;}
+    let mat = material.find(x=>x.id===id);
+    mat.stock += num;
     inLog.unshift({
-        time:timeStr,
-        name:item.name,
-        num:num,
-        person:person,
-        remark:remark
+        mid: mat.id,
+        mName:mat.name,
+        spec:mat.spec,
+        num,person,time,
+        floor:remark
     });
     saveData();
     alert('入库成功');
     document.getElementById('inNum').value='';
     document.getElementById('inPerson').value='';
-    document.getElementById('inTime').value='';
     document.getElementById('inRemark').value='';
+    renderInLog();
 }
 
 function stockOut(){
     let id = parseInt(document.getElementById('outGoods').value);
     let num = parseInt(document.getElementById('outNum').value);
     let person = document.getElementById('outPerson').value.trim();
-    let customTime = document.getElementById('outTime').value;
+    let time = document.getElementById('outTime').value || getNowTime();
     let remark = document.getElementById('outRemark').value.trim();
-
-    if(!id||!num||num<=0||!person){alert('请完善物料、数量、出库人');return;}
-
-    let item = material.find(x=>x.id===id);
-    if(item.stock < num){alert('库存不足');return;}
-    item.stock -= num;
-
-    let timeStr = customTime ? customTime : new Date().toLocaleString();
-
+    if(!id || !num || num<=0){alert('请选择物料并输入有效数量');return;}
+    let mat = material.find(x=>x.id===id);
+    if(mat.stock < num){alert('库存不足，无法出库');return;}
+    mat.stock -= num;
     outLog.unshift({
-        time:timeStr,
-        name:item.name,
-        num:num,
-        person:person,
-        remark:remark
+        mid: mat.id,
+        mName:mat.name,
+        spec:mat.spec,
+        num,person,time,
+        useRemark:remark
     });
     saveData();
     alert('出库成功');
     document.getElementById('outNum').value='';
     document.getElementById('outPerson').value='';
-    document.getElementById('outTime').value='';
     document.getElementById('outRemark').value='';
+    renderOutLog();
+}
+
+// 入库删除
+function delInLog(idx){
+    if(!confirm('确定删除这条入库记录？库存将自动退回'))return;
+    let row = inLog[idx];
+    let mat = material.find(item=>item.id === row.mid);
+    if(mat) mat.stock -= row.num;
+    inLog.splice(idx,1);
+    saveData();
+    renderInLog();
+    renderStock();
+}
+
+// 出库删除（绝对可用）
+function delOutLog(idx){
+    if(!confirm('确定删除这条出库记录？库存将自动恢复'))return;
+    let row = outLog[idx];
+    let mat = material.find(item=>item.id === row.mid);
+    if(mat) mat.stock += row.num;
+    outLog.splice(idx,1);
+    saveData();
+    renderOutLog();
+    renderStock();
 }
 
 function renderStock(){
     let key = document.getElementById('stockSearch').value.toLowerCase();
-    let html = '<tr><th>名称</th><th>分类</th><th>库存</th><th>预警</th></tr>';
+    let tab = document.getElementById('stockTable');
+    tab.innerHTML = '<tr><th>名称</th><th>分类</th><th>规格</th><th>单位</th><th>当前库存</th><th>预警库存</th></tr>';
     material.forEach(item=>{
         if(item.name.toLowerCase().includes(key) || item.cate.toLowerCase().includes(key)){
-            let cls = item.stock <= item.min ? 'warn' : '';
-            html += `<tr>
+            let tr = document.createElement('tr');
+            let warn = item.stock <= item.min ? 'warn' : '';
+            tr.innerHTML = `
                 <td>${item.name}</td>
                 <td>${item.cate}</td>
-                <td class="${cls}">${item.stock}</td>
+                <td>${item.spec}</td>
+                <td>${item.unit}</td>
+                <td class="${warn}">${item.stock}</td>
                 <td>${item.min}</td>
-            </tr>`;
+            `;
+            tab.appendChild(tr);
         }
     });
-    document.getElementById('stockTable').innerHTML = html;
 }
 
 function renderInLog(){
-    let html = '<tr><th>时间</th><th>物料</th><th>数量</th><th>操作</th></tr>';
-    inLog.forEach((item, idx)=>{
-        html += `<tr>
+    let tab = document.getElementById('inLogTable');
+    tab.innerHTML = '<tr><th>时间</th><th>物料</th><th>规格</th><th>数量</th><th>入库人</th><th>存放楼层</th><th>操作</th></tr>';
+    inLog.forEach((item,idx)=>{
+        let tr = document.createElement('tr');
+        tr.innerHTML = `
             <td>${item.time}</td>
-            <td>${item.name}</td>
+            <td>${item.mName}</td>
+            <td>${item.spec}</td>
             <td>${item.num}</td>
-            <td><button class="del-row" onclick="delInLogRow(${idx})">删除</button></td>
-        </tr>`;
+            <td>${item.person}</td>
+            <td>${item.floor||''}</td>
+            <td><button class="del-row" onclick="delInLog(${idx})">删除</button></td>
+        `;
+        tab.appendChild(tr);
     });
-    document.getElementById('inLogTable').innerHTML = html;
 }
 
 function renderOutLog(){
-    let html = '<tr><th>时间</th><th>物料</th><th>数量</th><th>操作</th></tr>';
-    outLog.forEach((item, idx)=>{
-        html += `<tr>
+    let tab = document.getElementById('outLogTable');
+    tab.innerHTML = '<tr><th>时间</th><th>物料</th><th>规格</th><th>数量</th><th>出库人</th><th>用途备注</th><th>操作</th></tr>';
+    outLog.forEach((item,idx)=>{
+        let tr = document.createElement('tr');
+        tr.innerHTML = `
             <td>${item.time}</td>
-            <td>${item.name}</td>
+            <td>${item.mName}</td>
+            <td>${item.spec}</td>
             <td>${item.num}</td>
-            <td><button class="del-row" onclick="delOutLogRow(${idx})">删除</button></td>
-        </tr>`;
+            <td>${item.person}</td>
+            <td>${item.useRemark||''}</td>
+            <td><button class="del-row" onclick="delOutLog(${idx})">删除</button></td>
+        `;
+        tab.appendChild(tr);
     });
-    document.getElementById('outLogTable').innerHTML = html;
 }
 
-renderMaterial();
-renderSelect();
+// 确保DOM加载完成
+document.addEventListener('DOMContentLoaded',function(){
+    renderMaterial();
+    renderInLog();
+    renderOutLog();
+});
 </script>
 </body>
 </html>
