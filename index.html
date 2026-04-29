@@ -28,7 +28,37 @@ th{background:#eee;}
 .img-preview{max-width:60px;height:auto;cursor:pointer;}
 #photoInput{display:none;}
 
-/* 打印时隐藏不需要的元素 */
+.login-wrap{
+    position:fixed;
+    top:0;left:0;
+    width:100%;height:100%;
+    background:#f5f5f5;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+.login-box{
+    background:#fff;
+    padding:30px;
+    border-radius:10px;
+    width:90%;max-width:350px;
+    position:relative;
+    box-shadow:0 0 10px #ddd;
+}
+.login-logo{
+    position:absolute;
+    top:12px;
+    left:15px;
+    font-size:22px;
+    font-weight:bold;
+    color:#007bff;
+}
+.login-box h3{text-align:center;margin-bottom:20px;margin-top:10px;}
+.login-btn1{background:#6c5ce7;}
+.login-btn2{background:#28a745;}
+
+.guest-mode .del-row{display:none !important;}
+
 @media print{
   .tab,.print-btn,.del-row,#box0,#box1,#box2,#box3{display:none !important;}
   .box.show{display:block !important;}
@@ -38,7 +68,18 @@ th{background:#eee;}
 </style>
 </head>
 <body>
-<div class="container">
+
+<div class="login-wrap" id="loginPage">
+    <div class="login-box">
+        <div class="login-logo">仓库</div>
+        <h3>马迹山仓库系统</h3>
+        <input type="password" id="pwdInput" placeholder="请输入管理员密码">
+        <button class="login-btn2" onclick="adminLogin()">管理员登录</button>
+        <button class="login-btn1" onclick="guestLogin()">游客无密码进入</button>
+    </div>
+</div>
+
+<div class="container" id="mainPage" style="display:none;">
     <h2>马迹山仓库</h2>
     <div class="tab">
         <div class="tab-item active" onclick="switchTab(0)">物料管理</div>
@@ -69,7 +110,6 @@ th{background:#eee;}
         <div class="tip">不选时间默认当前时间</div>
         <input type="text" id="inRemark" placeholder="存放楼层">
         
-        <!-- 拍照功能 -->
         <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto(this)">
         <button class="photo-btn" onclick="document.getElementById('photoInput').click()">拍照/选择图片</button>
         <div id="showPhoto"></div>
@@ -108,6 +148,9 @@ th{background:#eee;}
 </div>
 
 <script>
+const ADMIN_PWD = "123456";
+let isAdmin = false;
+
 let material = JSON.parse(localStorage.getItem('material')) || [];
 let inLog = JSON.parse(localStorage.getItem('inLog')) || [];
 let outLog = JSON.parse(localStorage.getItem('outLog')) || [];
@@ -119,12 +162,32 @@ function saveData(){
     localStorage.setItem('outLog',JSON.stringify(outLog));
 }
 
-// 打印功能
+function adminLogin(){
+    let pwd = document.getElementById('pwdInput').value.trim();
+    if(pwd === ADMIN_PWD){
+        isAdmin = true;
+        enterSystem();
+    }else{
+        alert('密码错误');
+    }
+}
+function guestLogin(){
+    isAdmin = false;
+    enterSystem();
+}
+function enterSystem(){
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('mainPage').style.display = 'block';
+    if(!isAdmin){
+        document.getElementById('mainPage').classList.add('guest-mode');
+    }
+    switchTab(0);
+}
+
 function printLog(){
     window.print();
 }
 
-// 处理拍照图片转base64
 function handlePhoto(input){
     let file = input.files[0];
     if(!file) return;
@@ -135,8 +198,6 @@ function handlePhoto(input){
     }
     reader.readAsDataURL(file);
 }
-
-// 点击放大图片
 function showBigImg(src){
     let newWin = window.open("");
     newWin.document.write(`<img src="${src}" style="width:100%;">`);
@@ -192,6 +253,7 @@ function renderMaterial(){
 }
 
 function delMaterial(index){
+    if(!isAdmin){alert('无权限删除');return;}
     if(confirm('确定删除该物料？')){
         material.splice(index,1);
         saveData();
@@ -230,11 +292,10 @@ function stockIn(){
         spec:mat.spec,
         num,person,time,
         floor:remark,
-        photo: tempPhotoBase64  // 保存拍照图片
+        photo: tempPhotoBase64
     });
     saveData();
     alert('入库成功');
-    // 清空表单和拍照
     document.getElementById('inNum').value='';
     document.getElementById('inPerson').value='';
     document.getElementById('inRemark').value='';
@@ -268,8 +329,8 @@ function stockOut(){
     renderOutLog();
 }
 
-// 入库删除
 function delInLog(idx){
+    if(!isAdmin){alert('无权限删除');return;}
     if(!confirm('确定删除这条入库记录？库存将自动退回'))return;
     let row = inLog[idx];
     let mat = material.find(item=>item.id === row.mid);
@@ -280,8 +341,8 @@ function delInLog(idx){
     renderStock();
 }
 
-// 出库删除
 function delOutLog(idx){
+    if(!isAdmin){alert('无权限删除');return;}
     if(!confirm('确定删除这条出库记录？库存将自动恢复'))return;
     let row = outLog[idx];
     let mat = material.find(item=>item.id === row.mid);
@@ -350,12 +411,24 @@ function renderOutLog(){
         tab.appendChild(tr);
     });
 }
-
-document.addEventListener('DOMContentLoaded',function(){
-    renderMaterial();
-    renderInLog();
-    renderOutLog();
-});
 </script>
+
+<script>
+// 空闲3分钟自动刷新，打字/操作不打断
+let idleTime = 0;
+const maxIdle = 180;
+function resetIdle(){ idleTime = 0; }
+window.addEventListener('keydown', resetIdle);
+window.addEventListener('mousemove', resetIdle);
+window.addEventListener('scroll', resetIdle);
+window.addEventListener('click', resetIdle);
+setInterval(function(){
+    idleTime++;
+    if(idleTime >= maxIdle){
+        location.reload();
+    }
+},1000);
+</script>
+
 </body>
 </html>
