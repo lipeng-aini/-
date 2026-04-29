@@ -18,16 +18,19 @@ input,select,button{padding:8px;margin:3px;border:1px solid #ccc;border-radius:4
 button{background:#007bff;color:white;border:none;cursor:pointer;}
 .del-row{background:#dc3545;padding:4px 6px;font-size:12px;border:none;border-radius:3px;color:#fff;}
 .print-btn{background:#28a745;margin-bottom:10px;max-width:120px;}
+.photo-btn{background:#6c5ce7;max-width:280px;}
 table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;}
 th,td{border:1px solid #ccc;padding:6px 2px;text-align:center;}
 th{background:#eee;}
 .warn{color:red;font-weight:bold;}
 .tip{font-size:12px;color:#666;margin-left:4px;}
 .search-box{width:100%;max-width:300px;margin-bottom:10px;}
+.img-preview{max-width:60px;height:auto;cursor:pointer;}
+#photoInput{display:none;}
 
 /* 打印时隐藏不需要的元素 */
 @media print{
-  .tab,.print-btn,#box0,#box1,#box2,#box3{display:none !important;}
+  .tab,.print-btn,.del-row,#box0,#box1,#box2,#box3{display:none !important;}
   .box.show{display:block !important;}
   body{background:#fff;padding:0;}
   .container{padding:0;}
@@ -65,6 +68,12 @@ th{background:#eee;}
         <input type="datetime-local" id="inTime">
         <div class="tip">不选时间默认当前时间</div>
         <input type="text" id="inRemark" placeholder="存放楼层">
+        
+        <!-- 拍照功能 -->
+        <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto(this)">
+        <button class="photo-btn" onclick="document.getElementById('photoInput').click()">拍照/选择图片</button>
+        <div id="showPhoto"></div>
+
         <button onclick="stockIn()">确认入库</button>
     </div>
 
@@ -102,6 +111,7 @@ th{background:#eee;}
 let material = JSON.parse(localStorage.getItem('material')) || [];
 let inLog = JSON.parse(localStorage.getItem('inLog')) || [];
 let outLog = JSON.parse(localStorage.getItem('outLog')) || [];
+let tempPhotoBase64 = "";
 
 function saveData(){
     localStorage.setItem('material',JSON.stringify(material));
@@ -112,6 +122,24 @@ function saveData(){
 // 打印功能
 function printLog(){
     window.print();
+}
+
+// 处理拍照图片转base64
+function handlePhoto(input){
+    let file = input.files[0];
+    if(!file) return;
+    let reader = new FileReader();
+    reader.onload = function(e){
+        tempPhotoBase64 = e.target.result;
+        document.getElementById('showPhoto').innerHTML = `<img src="${tempPhotoBase64}" style="max-width:120px;margin:5px 0;border:1px solid #ccc;">`;
+    }
+    reader.readAsDataURL(file);
+}
+
+// 点击放大图片
+function showBigImg(src){
+    let newWin = window.open("");
+    newWin.document.write(`<img src="${src}" style="width:100%;">`);
 }
 
 function switchTab(idx){
@@ -201,13 +229,17 @@ function stockIn(){
         mName:mat.name,
         spec:mat.spec,
         num,person,time,
-        floor:remark
+        floor:remark,
+        photo: tempPhotoBase64  // 保存拍照图片
     });
     saveData();
     alert('入库成功');
+    // 清空表单和拍照
     document.getElementById('inNum').value='';
     document.getElementById('inPerson').value='';
     document.getElementById('inRemark').value='';
+    document.getElementById('showPhoto').innerHTML = '';
+    tempPhotoBase64 = "";
     renderInLog();
 }
 
@@ -283,8 +315,9 @@ function renderStock(){
 
 function renderInLog(){
     let tab = document.getElementById('inLogTable');
-    tab.innerHTML = '<tr><th>时间</th><th>物料</th><th>规格</th><th>数量</th><th>入库人</th><th>存放楼层</th><th>操作</th></tr>';
+    tab.innerHTML = '<tr><th>时间</th><th>物料</th><th>规格</th><th>数量</th><th>入库人</th><th>存放楼层</th><th>照片</th><th>操作</th></tr>';
     inLog.forEach((item,idx)=>{
+        let imgHtml = item.photo ? `<img src="${item.photo}" class="img-preview" onclick="showBigImg('${item.photo}')">` : "无";
         let tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${item.time}</td>
@@ -293,6 +326,7 @@ function renderInLog(){
             <td>${item.num}</td>
             <td>${item.person}</td>
             <td>${item.floor||''}</td>
+            <td>${imgHtml}</td>
             <td><button class="del-row" onclick="delInLog(${idx})">删除</button></td>
         `;
         tab.appendChild(tr);
