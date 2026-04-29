@@ -17,12 +17,21 @@ h2{text-align:center;margin-bottom:15px;color:#333;font-size:18px;}
 input,select,button{padding:8px;margin:3px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;max-width:280px;}
 button{background:#007bff;color:white;border:none;cursor:pointer;}
 .del-row{background:#dc3545;padding:4px 6px;font-size:12px;border:none;border-radius:3px;color:#fff;}
+.print-btn{background:#28a745;margin-bottom:10px;max-width:120px;}
 table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;}
 th,td{border:1px solid #ccc;padding:6px 2px;text-align:center;}
 th{background:#eee;}
 .warn{color:red;font-weight:bold;}
 .tip{font-size:12px;color:#666;margin-left:4px;}
 .search-box{width:100%;max-width:300px;margin-bottom:10px;}
+
+/* 打印时隐藏不需要的元素 */
+@media print{
+  .tab,.print-btn,#box0,#box1,#box2,#box3{display:none !important;}
+  .box.show{display:block !important;}
+  body{background:#fff;padding:0;}
+  .container{padding:0;}
+}
 </style>
 </head>
 <body>
@@ -78,11 +87,13 @@ th{background:#eee;}
 
     <div class="box" id="box4">
         <h4>入库流水记录</h4>
+        <button class="print-btn" onclick="printLog()">打印入库流水</button>
         <table id="inLogTable"></table>
     </div>
 
     <div class="box" id="box5">
         <h4>出库流水记录</h4>
+        <button class="print-btn" onclick="printLog()">打印出库流水</button>
         <table id="outLogTable"></table>
     </div>
 </div>
@@ -96,6 +107,11 @@ function saveData(){
     localStorage.setItem('material',JSON.stringify(material));
     localStorage.setItem('inLog',JSON.stringify(inLog));
     localStorage.setItem('outLog',JSON.stringify(outLog));
+}
+
+// 打印功能
+function printLog(){
+    window.print();
 }
 
 function switchTab(idx){
@@ -232,7 +248,7 @@ function delInLog(idx){
     renderStock();
 }
 
-// 出库删除（绝对可用）
+// 出库删除
 function delOutLog(idx){
     if(!confirm('确定删除这条出库记录？库存将自动恢复'))return;
     let row = outLog[idx];
@@ -301,7 +317,6 @@ function renderOutLog(){
     });
 }
 
-// 确保DOM加载完成
 document.addEventListener('DOMContentLoaded',function(){
     renderMaterial();
     renderInLog();
