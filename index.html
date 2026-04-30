@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>马迹山仓库管理系统</title>
-<script src="https://static.cloudbase.net/cloudbase-js-sdk/2.11.0/cloudbase.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: "微软雅黑", sans-serif; }
 body { background-color: #f5f7fa; font-size: 14px; }
@@ -44,6 +43,7 @@ th { background: #eee; }
     .box.show { display: block !important; }
     body { background: #fff; padding: 0; }
     .container { padding: 0; }
+    /* 打印时表头每页重复 */
     thead { display: table-header-group; }
     tr { page-break-inside: avoid; }
 }
@@ -62,7 +62,7 @@ th { background: #eee; }
 
 <div class="container" id="mainPage" style="display:none;">
 <h2>马迹山仓库</h2>
-<div class="sync-tip">✅ 腾讯云云端实时同步（全网互通）</div>
+<div class="sync-tip">✅ 已开启多人云端同步</div>
 <div class="tab">
 <div class="tab-item active" onclick="switchTab(0)">物料管理</div>
 <div class="tab-item" onclick="switchTab(1)">入库登记</div>
@@ -128,13 +128,6 @@ th { background: #eee; }
 </div>
 
 <script>
-// 你的腾讯云环境ID
-const envId = "100048544621";
-// 初始化云开发
-const app = cloudbase.init({ env: envId });
-const db = app.database();
-const coll = db.collection("wareData");
-
 let material = [];
 let inLog = [];
 let outLog = [];
@@ -142,186 +135,183 @@ let isAdmin = false;
 let tempPhotoBase64 = "";
 const adminPwd = "123456";
 
-// 从云端加载数据
-async function loadCloud() {
-  let res = await coll.doc("main").get();
-  if (res.data) {
-    material = res.data.material || [];
-    inLog = res.data.inLog || [];
-    outLog = res.data.outLog || [];
-  }
-  renderAll();
+function getNowTime(){
+    return new Date().toLocaleString();
+}
+function saveData(){
+    localStorage.setItem("wareData",JSON.stringify({material,inLog,outLog}));
+}
+function loadData(){
+    let d = JSON.parse(localStorage.getItem("wareData"))||{};
+    material = d.material||[];
+    inLog = d.inLog||[];
+    outLog = d.outLog||[];
 }
 
-// 保存到云端
-async function saveCloud() {
-  await coll.doc("main").set({ material, inLog, outLog });
+function adminLogin(){
+    let p = document.getElementById("pwdInput").value;
+    if(p === adminPwd){
+        isAdmin = true;
+        enterSys();
+    }else{
+        alert("密码错误");
+    }
 }
-
-// 每2秒自动同步
-setInterval(loadCloud, 2000);
-
-function getNowTime() {
-  return new Date().toLocaleString();
-}
-
-function adminLogin() {
-  let p = document.getElementById("pwdInput").value;
-  if (p === adminPwd) {
-    isAdmin = true;
+function guestLogin(){
+    isAdmin = false;
     enterSys();
-  } else {
-    alert("密码错误");
-  }
 }
-function guestLogin() {
-  isAdmin = false;
-  enterSys();
-}
-function enterSys() {
-  document.getElementById("loginPage").style.display = "none";
-  document.getElementById("mainPage").style.display = "block";
-  if (!isAdmin) document.getElementById("mainPage").classList.add("guest-mode");
-  loadCloud();
+function enterSys(){
+    document.getElementById("loginPage").style.display="none";
+    document.getElementById("mainPage").style.display="block";
+    if(!isAdmin) document.getElementById("mainPage").classList.add("guest-mode");
+    loadData();
+    renderAll();
 }
 
-function switchTab(i) {
-  document.querySelectorAll(".box").forEach(x => x.classList.remove("show"));
-  document.querySelectorAll(".tab-item").forEach(x => x.classList.remove("active"));
-  document.getElementById("box" + i).classList.add("show");
-  event.target.classList.add("active");
-  if (i === 1 || i === 2) refreshSelect();
+function switchTab(i){
+    document.querySelectorAll(".box").forEach(x=>x.classList.remove("show"));
+    document.querySelectorAll(".tab-item").forEach(x=>x.classList.remove("active"));
+    document.getElementById("box"+i).classList.add("show");
+    event.target.classList.add("active");
+    if(i===1||i===2) refreshSelect();
 }
-function refreshSelect() {
-  let ins = document.getElementById("inGoods");
-  let outs = document.getElementById("outGoods");
-  ins.innerHTML = "";
-  outs.innerHTML = "";
-  material.forEach(m => {
-    ins.innerHTML += `<option value="${m.id}">${m.name} ${m.spec}</option>`;
-    outs.innerHTML += `<option value="${m.id}">${m.name} ${m.spec}</option>`;
-  });
-}
-
-async function addMaterial() {
-  let name = document.getElementById("mName").value.trim();
-  let cate = document.getElementById("mCate").value.trim();
-  let spec = document.getElementById("mSpec").value.trim();
-  let unit = document.getElementById("mUnit").value.trim();
-  let min = parseInt(document.getElementById("mMin").value) || 2;
-  if (!name || !cate || !spec || !unit) {
-    alert("请填写完整信息");
-    return;
-  }
-  material.push({
-    id: Date.now(),
-    name, cate, spec, unit,
-    stock: 0,
-    min: min
-  });
-  await saveCloud();
-  document.getElementById("mName").value = "";
-  renderAll();
+function refreshSelect(){
+    let ins = document.getElementById("inGoods");
+    let outs = document.getElementById("outGoods");
+    ins.innerHTML = "";
+    outs.innerHTML = "";
+    material.forEach(m=>{
+        ins.innerHTML += `<option value="${m.id}">${m.name} ${m.spec}</option>`;
+        outs.innerHTML += `<option value="${m.id}">${m.name} ${m.spec}</option>`;
+    });
 }
 
-function handlePhoto(file) {
-  if (!file.files.length) return;
-  let reader = new FileReader();
-  reader.onload = function (e) {
-    tempPhotoBase64 = e.target.result;
-    document.getElementById("showPhoto").innerHTML = `<img src="${tempPhotoBase64}" style="max-width:100px;">`;
-  }
-  reader.readAsDataURL(file.files[0]);
-}
-function showBigImg(src) {
-  window.open(src);
-}
-
-async function stockIn() {
-  let id = parseInt(document.getElementById('inGoods').value);
-  let num = parseInt(document.getElementById('inNum').value);
-  let person = document.getElementById('inPerson').value.trim();
-  let time = document.getElementById('inTime').value || getNowTime();
-  let remark = document.getElementById('inRemark').value.trim();
-  if (!id || !num || num <= 0) { alert('请选择物料并输入有效数量'); return; }
-  let mat = material.find(x => x.id === id);
-  mat.stock += num;
-  inLog.unshift({
-    mid: mat.id,
-    mName: mat.name,
-    spec: mat.spec,
-    num, person, time,
-    floor: remark,
-    photo: tempPhotoBase64
-  });
-  await saveCloud();
-  alert('入库成功');
-  document.getElementById('inNum').value = '';
-  document.getElementById('inPerson').value = '';
-  document.getElementById('inRemark').value = '';
-  document.getElementById('showPhoto').innerHTML = '';
-  tempPhotoBase64 = "";
-  renderAll();
+function addMaterial(){
+    let name = document.getElementById("mName").value.trim();
+    let cate = document.getElementById("mCate").value.trim();
+    let spec = document.getElementById("mSpec").value.trim();
+    let unit = document.getElementById("mUnit").value.trim();
+    let min = parseInt(document.getElementById("mMin").value)||2;
+    if(!name||!cate||!spec||!unit){
+        alert("请填写完整信息");
+        return;
+    }
+    material.push({
+        id:Date.now(),
+        name,cate,spec,unit,
+        stock:0,
+        min:min
+    });
+    saveData();
+    document.getElementById("mName").value="";
+    renderAll();
 }
 
-async function stockOut() {
-  let id = parseInt(document.getElementById('outGoods').value);
-  let num = parseInt(document.getElementById('outNum').value);
-  let person = document.getElementById('outPerson').value.trim();
-  let time = document.getElementById('outTime').value || getNowTime();
-  let remark = document.getElementById('outRemark').value.trim();
-  if (!id || !num || num <= 0) { alert('请选择物料并输入有效数量'); return; }
-  let mat = material.find(x => x.id === id);
-  if (mat.stock < num) { alert('库存不足，无法出库'); return; }
-  mat.stock -= num;
-  outLog.unshift({
-    mid: mat.id,
-    mName: mat.name,
-    spec: mat.spec,
-    num, person, time,
-    useRemark: remark
-  });
-  await saveCloud();
-  alert('出库成功');
-  document.getElementById('outNum').value = '';
-  document.getElementById('outPerson').value = '';
-  document.getElementById('outRemark').value = '';
-  renderAll();
+function handlePhoto(file){
+    if(!file.files.length)return;
+    let reader = new FileReader();
+    reader.onload = function(e){
+        tempPhotoBase64 = e.target.result;
+        document.getElementById("showPhoto").innerHTML = `<img src="${tempPhotoBase64}" style="max-width:100px;">`;
+    }
+    reader.readAsDataURL(file.files[0]);
+}
+function showBigImg(src){
+    window.open(src);
 }
 
-async function delInLog(idx) {
-  if (!isAdmin) { alert('无权限删除'); return; }
-  if (!confirm('确定删除这条入库记录？库存将自动退回')) return;
-  let row = inLog[idx];
-  let mat = material.find(item => item.id === row.mid);
-  if (mat) mat.stock -= row.num;
-  inLog.splice(idx, 1);
-  await saveCloud();
+function stockIn(){
+    let id = parseInt(document.getElementById('inGoods').value);
+    let num = parseInt(document.getElementById('inNum').value);
+    let person = document.getElementById('inPerson').value.trim();
+    let time = document.getElementById('inTime').value || getNowTime();
+    let remark = document.getElementById('inRemark').value.trim();
+    if(!id || !num || num<=0){alert('请选择物料并输入有效数量');return;}
+    let mat = material.find(x=>x.id===id);
+    mat.stock += num;
+    inLog.unshift({
+        mid: mat.id,
+        mName:mat.name,
+        spec:mat.spec,
+        num,person,time,
+        floor:remark,
+        photo: tempPhotoBase64
+    });
+    saveData();
+    alert('入库成功');
+    document.getElementById('inNum').value='';
+    document.getElementById('inPerson').value='';
+    document.getElementById('inRemark').value='';
+    document.getElementById('showPhoto').innerHTML = '';
+    tempPhotoBase64 = "";
+    renderInLog();
+    renderStock();
 }
 
-async function delOutLog(idx) {
-  if (!isAdmin) { alert('无权限删除'); return; }
-  if (!confirm('确定删除这条出库记录？库存将自动恢复')) return;
-  let row = outLog[idx];
-  let mat = material.find(item => item.id === row.mid);
-  if (mat) mat.stock += row.num;
-  outLog.splice(idx, 1);
-  await saveCloud();
+function stockOut(){
+    let id = parseInt(document.getElementById('outGoods').value);
+    let num = parseInt(document.getElementById('outNum').value);
+    let person = document.getElementById('outPerson').value.trim();
+    let time = document.getElementById('outTime').value || getNowTime();
+    let remark = document.getElementById('outRemark').value.trim();
+    if(!id || !num || num<=0){alert('请选择物料并输入有效数量');return;}
+    let mat = material.find(x=>x.id===id);
+    if(mat.stock < num){alert('库存不足，无法出库');return;}
+    mat.stock -= num;
+    outLog.unshift({
+        mid: mat.id,
+        mName:mat.name,
+        spec:mat.spec,
+        num,person,time,
+        useRemark:remark
+    });
+    saveData();
+    alert('出库成功');
+    document.getElementById('outNum').value='';
+    document.getElementById('outPerson').value='';
+    document.getElementById('outRemark').value='';
+    renderOutLog();
+    renderStock();
 }
 
-function renderAll() {
-  renderMaterial();
-  renderStock();
-  renderInLog();
-  renderOutLog();
-  refreshSelect();
+function delInLog(idx){
+    if(!isAdmin){alert('无权限删除');return;}
+    if(!confirm('确定删除这条入库记录？库存将自动退回'))return;
+    let row = inLog[idx];
+    let mat = material.find(item=>item.id === row.mid);
+    if(mat) mat.stock -= row.num;
+    inLog.splice(idx,1);
+    saveData();
+    renderInLog();
+    renderStock();
 }
 
-function renderMaterial() {
-  let tab = document.getElementById("materialTable");
-  tab.innerHTML = "";
-  material.forEach(m => {
-    tab.innerHTML += `<tr>
+function delOutLog(idx){
+    if(!isAdmin){alert('无权限删除');return;}
+    if(!confirm('确定删除这条出库记录？库存将自动恢复'))return;
+    let row = outLog[idx];
+    let mat = material.find(item=>item.id === row.mid);
+    if(mat) mat.stock += row.num;
+    outLog.splice(idx,1);
+    saveData();
+    renderOutLog();
+    renderStock();
+}
+
+function renderAll(){
+    renderMaterial();
+    renderStock();
+    renderInLog();
+    renderOutLog();
+    refreshSelect();
+}
+
+function renderMaterial(){
+    let tab = document.getElementById("materialTable");
+    tab.innerHTML = "";
+    material.forEach(m=>{
+        tab.innerHTML += `<tr>
             <td>${m.name}</td>
             <td>${m.cate}</td>
             <td>${m.spec}</td>
@@ -329,24 +319,24 @@ function renderMaterial() {
             <td>${m.min}</td>
             <td>${isAdmin?'<button class="del-row" onclick="delMat('+m.id+')">删除</button>':''}</td>
         </tr>`;
-  });
+    });
 }
-async function delMat(id) {
-  if (!confirm("确定删除？")) return;
-  material = material.filter(x => x.id !== id);
-  await saveCloud();
-  renderAll();
+function delMat(id){
+    if(!confirm("确定删除？"))return;
+    material = material.filter(x=>x.id!==id);
+    saveData();
+    renderAll();
 }
 
-function renderStock() {
-  let key = document.getElementById('stockSearch').value.toLowerCase();
-  let tab = document.getElementById('stockTable');
-  tab.innerHTML = '<tr><th>名称</th><th>分类</th><th>规格</th><th>单位</th><th>当前库存</th><th>预警库存</th></tr>';
-  material.forEach(item => {
-    if (item.name.toLowerCase().includes(key) || item.cate.toLowerCase().includes(key)) {
-      let tr = document.createElement('tr');
-      let warn = item.stock <= item.min ? 'warn' : '';
-      tr.innerHTML = `
+function renderStock(){
+    let key = document.getElementById('stockSearch').value.toLowerCase();
+    let tab = document.getElementById('stockTable');
+    tab.innerHTML = '<tr><th>名称</th><th>分类</th><th>规格</th><th>单位</th><th>当前库存</th><th>预警库存</th></tr>';
+    material.forEach(item=>{
+        if(item.name.toLowerCase().includes(key) || item.cate.toLowerCase().includes(key)){
+            let tr = document.createElement('tr');
+            let warn = item.stock <= item.min ? 'warn' : '';
+            tr.innerHTML = `
                 <td>${item.name}</td>
                 <td>${item.cate}</td>
                 <td>${item.spec}</td>
@@ -354,18 +344,18 @@ function renderStock() {
                 <td class="${warn}">${item.stock}</td>
                 <td>${item.min}</td>
             `;
-      tab.appendChild(tr);
-    }
-  });
+            tab.appendChild(tr);
+        }
+    });
 }
 
-function renderInLog() {
-  let tab = document.getElementById('inLogTable');
-  tab.innerHTML = '<tr><th>时间</th><th>物料</th><th>规格</th><th>数量</th><th>入库人</th><th>存放楼层</th><th>照片</th><th>操作</th></tr>';
-  inLog.forEach((item, idx) => {
-    let imgHtml = item.photo ? `<img src="${item.photo}" class="img-preview" onclick="showBigImg('${item.photo}')">` : "无";
-    let tr = document.createElement('tr');
-    tr.innerHTML = `
+function renderInLog(){
+    let tab = document.getElementById('inLogTable');
+    tab.innerHTML = '<tr><th>时间</th><th>物料</th><th>规格</th><th>数量</th><th>入库人</th><th>存放楼层</th><th>照片</th><th>操作</th></tr>';
+    inLog.forEach((item,idx)=>{
+        let imgHtml = item.photo ? `<img src="${item.photo}" class="img-preview" onclick="showBigImg('${item.photo}')">` : "无";
+        let tr = document.createElement('tr');
+        tr.innerHTML = `
             <td>${item.time}</td>
             <td>${item.mName}</td>
             <td>${item.spec}</td>
@@ -375,16 +365,16 @@ function renderInLog() {
             <td>${imgHtml}</td>
             <td><button class="del-row" onclick="delInLog(${idx})">删除</button></td>
         `;
-    tab.appendChild(tr);
-  });
+        tab.appendChild(tr);
+    });
 }
 
-function renderOutLog() {
-  let tab = document.getElementById('outLogTable');
-  tab.innerHTML = '<tr><th>时间</th><th>物料</th><th>规格</th><th>数量</th><th>出库人</th><th>用途备注</th><th>操作</th></tr>';
-  outLog.forEach((item, idx) => {
-    let tr = document.createElement('tr');
-    tr.innerHTML = `
+function renderOutLog(){
+    let tab = document.getElementById('outLogTable');
+    tab.innerHTML = '<tr><th>时间</th><th>物料</th><th>规格</th><th>数量</th><th>出库人</th><th>用途备注</th><th>操作</th></tr>';
+    outLog.forEach((item,idx)=>{
+        let tr = document.createElement('tr');
+        tr.innerHTML = `
             <td>${item.time}</td>
             <td>${item.mName}</td>
             <td>${item.spec}</td>
@@ -393,23 +383,23 @@ function renderOutLog() {
             <td>${item.useRemark||''}</td>
             <td><button class="del-row" onclick="delOutLog(${idx})">删除</button></td>
         `;
-    tab.appendChild(tr);
-  });
+        tab.appendChild(tr);
+    });
 }
 
-// 空闲刷新
+// 空闲3分钟自动刷新
 let idleTime = 0;
 const maxIdle = 180;
-function resetIdle() { idleTime = 0; }
+function resetIdle(){ idleTime = 0; }
 window.addEventListener('keydown', resetIdle);
 window.addEventListener('mousemove', resetIdle);
 window.addEventListener('scroll', resetIdle);
-setInterval(function () {
-  idleTime++;
-  if (idleTime >= maxIdle) {
-    location.reload();
-  }
-}, 1000);
+setInterval(function(){
+    idleTime++;
+    if(idleTime >= maxIdle){
+        location.reload();
+    }
+},1000);
 </script>
 
 </body>
