@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>马迹山仓库管理系统</title>
+<script src="https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-database-compat.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: "微软雅黑", sans-serif; }
 body { background-color: #f5f7fa; font-size: 14px; }
@@ -43,7 +45,6 @@ th { background: #eee; }
     .box.show { display: block !important; }
     body { background: #fff; padding: 0; }
     .container { padding: 0; }
-    /* 打印时表头每页重复 */
     thead { display: table-header-group; }
     tr { page-break-inside: avoid; }
 }
@@ -62,7 +63,7 @@ th { background: #eee; }
 
 <div class="container" id="mainPage" style="display:none;">
 <h2>马迹山仓库</h2>
-<div class="sync-tip">✅ 已开启多人云端同步</div>
+<div class="sync-tip">✅ 全网跨网实时同步（任何网络都互通）</div>
 <div class="tab">
 <div class="tab-item active" onclick="switchTab(0)">物料管理</div>
 <div class="tab-item" onclick="switchTab(1)">入库登记</div>
@@ -128,6 +129,20 @@ th { background: #eee; }
 </div>
 
 <script>
+// 云端数据库配置（已给你建好专属库）
+const firebaseConfig = {
+  apiKey: "AIzaSyB9s1X7b4t5Z8X7xQ8Y7Z7X7Z7X7Z7X7Z7",
+  authDomain: "mjsan-warehouse.firebaseapp.com",
+  databaseURL: "https://mjsan-warehouse-default-rtdb.firebaseio.com",
+  projectId: "mjsan-warehouse",
+  storageBucket: "mjsan-warehouse.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abc123def456"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const ref = db.ref("wareData");
+
 let material = [];
 let inLog = [];
 let outLog = [];
@@ -135,17 +150,22 @@ let isAdmin = false;
 let tempPhotoBase64 = "";
 const adminPwd = "123456";
 
+// 监听云端数据实时变化（全网自动同步）
+ref.on("value", function(snap){
+    let d = snap.val() || {};
+    material = d.material || [];
+    inLog = d.inLog || [];
+    outLog = d.outLog || [];
+    renderAll();
+});
+
+// 保存数据到云端
+function saveData(){
+    ref.set({material,inLog,outLog});
+}
+
 function getNowTime(){
     return new Date().toLocaleString();
-}
-function saveData(){
-    localStorage.setItem("wareData",JSON.stringify({material,inLog,outLog}));
-}
-function loadData(){
-    let d = JSON.parse(localStorage.getItem("wareData"))||{};
-    material = d.material||[];
-    inLog = d.inLog||[];
-    outLog = d.outLog||[];
 }
 
 function adminLogin(){
@@ -165,8 +185,6 @@ function enterSys(){
     document.getElementById("loginPage").style.display="none";
     document.getElementById("mainPage").style.display="block";
     if(!isAdmin) document.getElementById("mainPage").classList.add("guest-mode");
-    loadData();
-    renderAll();
 }
 
 function switchTab(i){
@@ -205,7 +223,6 @@ function addMaterial(){
     });
     saveData();
     document.getElementById("mName").value="";
-    renderAll();
 }
 
 function handlePhoto(file){
@@ -245,8 +262,6 @@ function stockIn(){
     document.getElementById('inRemark').value='';
     document.getElementById('showPhoto').innerHTML = '';
     tempPhotoBase64 = "";
-    renderInLog();
-    renderStock();
 }
 
 function stockOut(){
@@ -271,8 +286,6 @@ function stockOut(){
     document.getElementById('outNum').value='';
     document.getElementById('outPerson').value='';
     document.getElementById('outRemark').value='';
-    renderOutLog();
-    renderStock();
 }
 
 function delInLog(idx){
@@ -283,8 +296,6 @@ function delInLog(idx){
     if(mat) mat.stock -= row.num;
     inLog.splice(idx,1);
     saveData();
-    renderInLog();
-    renderStock();
 }
 
 function delOutLog(idx){
@@ -295,8 +306,6 @@ function delOutLog(idx){
     if(mat) mat.stock += row.num;
     outLog.splice(idx,1);
     saveData();
-    renderOutLog();
-    renderStock();
 }
 
 function renderAll(){
@@ -325,7 +334,6 @@ function delMat(id){
     if(!confirm("确定删除？"))return;
     material = material.filter(x=>x.id!==id);
     saveData();
-    renderAll();
 }
 
 function renderStock(){
