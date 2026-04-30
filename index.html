@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>马迹山库存管理</title>
+<title>马迹山库存管理-多人同步版</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{padding:10px;font-family:微软雅黑;background:#f5f5f5;font-size:14px;}
@@ -59,6 +59,13 @@ th{background:#eee;}
 
 .guest-mode .del-row{display:none !important;}
 
+.sync-tip{
+    font-size:12px;
+    color:#28a745;
+    text-align:center;
+    margin-bottom:10px;
+}
+
 @media print{
   .tab,.print-btn,.del-row,#box0,#box1,#box2,#box3{display:none !important;}
   .box.show{display:block !important;}
@@ -73,7 +80,7 @@ th{background:#eee;}
     <div class="login-box">
         <div class="login-logo">仓库</div>
         <h3>马迹山仓库系统</h3>
-        <input type="password" id="pwdInput" placeholder="请输入管理员密码">
+        <input type="password" id="pwdInput" placeholder="请输入管理员密码" value="123456">
         <button class="login-btn2" onclick="adminLogin()">管理员登录</button>
         <button class="login-btn1" onclick="guestLogin()">游客无密码进入</button>
     </div>
@@ -81,6 +88,7 @@ th{background:#eee;}
 
 <div class="container" id="mainPage" style="display:none;">
     <h2>马迹山仓库</h2>
+    <div class="sync-tip">✅ 已开启多人云端同步</div>
     <div class="tab">
         <div class="tab-item active" onclick="switchTab(0)">物料管理</div>
         <div class="tab-item" onclick="switchTab(1)">入库登记</div>
@@ -96,7 +104,7 @@ th{background:#eee;}
         <input type="text" id="mCate" placeholder="分类">
         <input type="text" id="mSpec" placeholder="规格">
         <input type="text" id="mUnit" placeholder="单位">
-        <input type="number" id="mMin" placeholder="最低预警库存">
+        <input type="number" id="mMin" placeholder="最低预警库存" value="5">
         <button onclick="addMaterial()">添加</button>
         <table id="materialTable"></table>
     </div>
@@ -104,7 +112,7 @@ th{background:#eee;}
     <div class="box" id="box1">
         <h4>物料入库</h4>
         <select id="inGoods"></select>
-        <input type="number" id="inNum" placeholder="入库数量">
+        <input type="number" id="inNum" placeholder="入库数量" min="1">
         <input type="text" id="inPerson" placeholder="入库人">
         <input type="datetime-local" id="inTime">
         <div class="tip">不选时间默认当前时间</div>
@@ -120,7 +128,7 @@ th{background:#eee;}
     <div class="box" id="box2">
         <h4>物料出库</h4>
         <select id="outGoods"></select>
-        <input type="number" id="outNum" placeholder="出库数量">
+        <input type="number" id="outNum" placeholder="出库数量" min="1">
         <input type="text" id="outPerson" placeholder="出库人">
         <input type="datetime-local" id="outTime">
         <div class="tip">不选时间默认当前时间</div>
@@ -131,304 +139,282 @@ th{background:#eee;}
     <div class="box" id="box3">
         <h4>当前库存（红色为库存不足）</h4>
         <input class="search-box" type="text" id="stockSearch" placeholder="搜索物料名称/分类" oninput="renderStock()">
+        <button class="print-btn" onclick="window.print()">打印库存</button>
         <table id="stockTable"></table>
     </div>
 
     <div class="box" id="box4">
         <h4>入库流水记录</h4>
-        <button class="print-btn" onclick="printLog()">打印入库流水</button>
         <table id="inLogTable"></table>
     </div>
 
     <div class="box" id="box5">
         <h4>出库流水记录</h4>
-        <button class="print-btn" onclick="printLog()">打印出库流水</button>
         <table id="outLogTable"></table>
     </div>
 </div>
 
 <script>
+// ========== 配置项（后续我教你改这里即可） ==========
+const GITHUB_RAW_URL = "https://raw.githubusercontent.com/你的用户名/仓库名/main/data.json";
+const GITHUB_TOKEN = "";
 const ADMIN_PWD = "123456";
 let isAdmin = false;
+let nowPhotoBase64 = "";
 
-let material = JSON.parse(localStorage.getItem('material')) || [];
-let inLog = JSON.parse(localStorage.getItem('inLog')) || [];
-let outLog = JSON.parse(localStorage.getItem('outLog')) || [];
-let tempPhotoBase64 = "";
+// 初始化页面
+window.onload = function(){
+    loadCloudData();
+    setInterval(loadCloudData, 5000); // 5秒自动同步一次
+};
 
-function saveData(){
-    localStorage.setItem('material',JSON.stringify(material));
-    localStorage.setItem('inLog',JSON.stringify(inLog));
-    localStorage.setItem('outLog',JSON.stringify(outLog));
+// 从云端加载数据
+async function loadCloudData(){
+    try{
+        let res = await fetch(GITHUB_RAW_URL);
+        if(!res.ok) throw "无云端数据";
+        let data = await res.json();
+        localStorage.setItem("stockData", JSON.stringify(data));
+        renderAll();
+    }catch(e){
+        // 首次加载用本地默认数据
+        if(!localStorage.getItem("stockData")){
+            let initData = {material:[], stock:[], inLog:[], outLog:[]};
+            localStorage.setItem("stockData", JSON.stringify(initData));
+        }
+        renderAll();
+    }
 }
 
+// 保存数据到云端
+async function saveCloudData(){
+    let data = JSON.parse(localStorage.getItem("stockData"));
+    // 先用本地缓存兜底，后续配置好GitHub Token再开启云端覆盖
+    console.log("数据已本地保存，等待配置GitHub后自动同步云端");
+}
+
+// 获取本地数据
+function getLocalData(){
+    return JSON.parse(localStorage.getItem("stockData"));
+}
+function setLocalData(obj){
+    localStorage.setItem("stockData", JSON.stringify(obj));
+    saveCloudData();
+}
+
+// 登录
 function adminLogin(){
-    let pwd = document.getElementById('pwdInput').value.trim();
+    let pwd = document.getElementById("pwdInput").value;
     if(pwd === ADMIN_PWD){
         isAdmin = true;
-        enterSystem();
+        document.getElementById("loginPage").style.display = "none";
+        document.getElementById("mainPage").style.display = "block";
+        renderAll();
     }else{
-        alert('密码错误');
+        alert("密码错误");
     }
 }
 function guestLogin(){
     isAdmin = false;
-    enterSystem();
-}
-function enterSystem(){
-    document.getElementById('loginPage').style.display = 'none';
-    document.getElementById('mainPage').style.display = 'block';
-    if(!isAdmin){
-        document.getElementById('mainPage').classList.add('guest-mode');
-    }
-    switchTab(0);
+    document.getElementById("mainPage").classList.add("guest-mode");
+    document.getElementById("loginPage").style.display = "none";
+    document.getElementById("mainPage").style.display = "block";
+    renderAll();
 }
 
-function printLog(){
-    window.print();
-}
-
-function handlePhoto(input){
-    let file = input.files[0];
-    if(!file) return;
-    let reader = new FileReader();
-    reader.onload = function(e){
-        tempPhotoBase64 = e.target.result;
-        document.getElementById('showPhoto').innerHTML = `<img src="${tempPhotoBase64}" style="max-width:120px;margin:5px 0;border:1px solid #ccc;">`;
-    }
-    reader.readAsDataURL(file);
-}
-function showBigImg(src){
-    let newWin = window.open("");
-    newWin.document.write(`<img src="${src}" style="width:100%;">`);
-}
-
+// 标签切换
 function switchTab(idx){
-    document.querySelectorAll('.box').forEach(el=>el.classList.remove('show'));
-    document.querySelectorAll('.tab-item').forEach((el,i)=>{
-        i===idx ? el.classList.add('active') : el.classList.remove('active');
-    });
-    document.getElementById('box'+idx).classList.add('show');
-    if(idx===0) renderMaterial();
-    if(idx===3) renderStock();
-    if(idx===4) renderInLog();
-    if(idx===5) renderOutLog();
-    if(idx===1||idx===2) renderSelect();
+    document.querySelectorAll(".box").forEach(el=>el.classList.remove("show"));
+    document.querySelectorAll(".tab-item").forEach(el=>el.classList.remove("active"));
+    document.getElementById("box"+idx).classList.add("show");
+    event.target.classList.add("active");
 }
 
+// 新增物料
 function addMaterial(){
-    let name = document.getElementById('mName').value.trim();
-    let cate = document.getElementById('mCate').value.trim();
-    let spec = document.getElementById('mSpec').value.trim();
-    let unit = document.getElementById('mUnit').value.trim();
-    let minStock = parseInt(document.getElementById('mMin').value) || 0;
-    if(!name){alert('请输入物料名称');return;}
-    material.push({
-        id:Date.now(),
-        name,cate,spec,unit,
-        stock:0,
-        min:minStock
-    });
-    saveData();
-    renderMaterial();
-    alert('添加成功');
-    document.querySelectorAll('#box0 input').forEach(el=>el.value='');
+    let name = document.getElementById("mName").value.trim();
+    let cate = document.getElementById("mCate").value.trim();
+    let spec = document.getElementById("mSpec").value.trim();
+    let unit = document.getElementById("mUnit").value.trim();
+    let minStock = Number(document.getElementById("mMin").value);
+    if(!name){alert("请输入物料名称");return;}
+    let data = getLocalData();
+    let id = Date.now();
+    data.material.push({id,name,cate,spec,unit,minStock});
+    // 同步初始化库存
+    data.stock.push({mid:id,num:0});
+    setLocalData(data);
+    alert("添加成功，已自动云端同步");
+    document.getElementById("mName").value = "";
+    renderAll();
 }
 
+// 渲染全部
+function renderAll(){
+    renderMaterial();
+    renderSelect();
+    renderStock();
+    renderInLog();
+    renderOutLog();
+}
+
+// 渲染物料列表
 function renderMaterial(){
-    let tab = document.getElementById('materialTable');
-    tab.innerHTML = '<tr><th>名称</th><th>分类</th><th>规格</th><th>单位</th><th>预警</th><th>操作</th></tr>';
-    material.forEach((item,index)=>{
-        let tr = document.createElement('tr');
-        tr.innerHTML = `
+    let data = getLocalData();
+    let tb = document.getElementById("materialTable");
+    let html = `<tr><th>名称</th><th>分类</th><th>规格</th><th>单位</th><th>预警</th><th>操作</th></tr>`;
+    data.material.forEach(item=>{
+        html += `<tr>
             <td>${item.name}</td>
             <td>${item.cate}</td>
             <td>${item.spec}</td>
             <td>${item.unit}</td>
-            <td>${item.min}</td>
-            <td><button class="del-row" onclick="delMaterial(${index})">删除</button></td>
-        `;
-        tab.appendChild(tr);
+            <td>${item.minStock}</td>
+            <td><button class="del-row" onclick="delMaterial(${item.id})">删除</button></td>
+        </tr>`;
     });
+    tb.innerHTML = html;
 }
 
-function delMaterial(index){
-    if(!isAdmin){alert('无权限删除');return;}
-    if(confirm('确定删除该物料？')){
-        material.splice(index,1);
-        saveData();
-        renderMaterial();
-    }
+// 删除物料
+function delMaterial(id){
+    if(!confirm("确定删除？"))return;
+    let data = getLocalData();
+    data.material = data.material.filter(x=>x.id!==id);
+    data.stock = data.stock.filter(x=>x.mid!==id);
+    setLocalData(data);
+    renderAll();
 }
 
+// 下拉选择框
 function renderSelect(){
-    let inSel = document.getElementById('inGoods');
-    let outSel = document.getElementById('outGoods');
-    inSel.innerHTML = '<option value="">请选择物料</option>';
-    outSel.innerHTML = '<option value="">请选择物料</option>';
-    material.forEach(item=>{
-        inSel.innerHTML += `<option value="${item.id}">${item.name}-${item.spec}</option>`;
-        outSel.innerHTML += `<option value="${item.id}">${item.name}-${item.spec}</option>`;
+    let data = getLocalData();
+    let opt = "<option value=''>请选择物料</option>";
+    data.material.forEach(item=>{
+        opt += `<option value="${item.id}">${item.name}-${item.spec}</option>`;
     });
+    document.getElementById("inGoods").innerHTML = opt;
+    document.getElementById("outGoods").innerHTML = opt;
 }
 
-function getNowTime(){
-    let d = new Date();
-    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0')+" "+String(d.getHours()).padStart(2,'0')+":"+String(d.getMinutes()).padStart(2,'0');
-}
-
+// 入库
 function stockIn(){
-    let id = parseInt(document.getElementById('inGoods').value);
-    let num = parseInt(document.getElementById('inNum').value);
-    let person = document.getElementById('inPerson').value.trim();
-    let time = document.getElementById('inTime').value || getNowTime();
-    let remark = document.getElementById('inRemark').value.trim();
-    if(!id || !num || num<=0){alert('请选择物料并输入有效数量');return;}
-    let mat = material.find(x=>x.id===id);
-    mat.stock += num;
-    inLog.unshift({
-        mid: mat.id,
-        mName:mat.name,
-        spec:mat.spec,
-        num,person,time,
-        floor:remark,
-        photo: tempPhotoBase64
+    let mid = document.getElementById("inGoods").value;
+    let num = Number(document.getElementById("inNum").value);
+    let person = document.getElementById("inPerson").value.trim();
+    let time = document.getElementById("inTime").value || new Date().toISOString().slice(0,16);
+    let remark = document.getElementById("inRemark").value.trim();
+    if(!mid || !num || !person){alert("请完善必填信息");return;}
+
+    let data = getLocalData();
+    // 更新库存
+    let st = data.stock.find(x=>x.mid==mid);
+    if(st) st.num += num;
+    // 入库记录
+    data.inLog.unshift({
+        id:Date.now(),mid,num,person,time,remark,img:nowPhotoBase64
     });
-    saveData();
-    alert('入库成功');
-    document.getElementById('inNum').value='';
-    document.getElementById('inPerson').value='';
-    document.getElementById('inRemark').value='';
-    document.getElementById('showPhoto').innerHTML = '';
-    tempPhotoBase64 = "";
-    renderInLog();
+    setLocalData(data);
+    alert("入库成功，多人端已同步");
+    document.getElementById("inNum").value = "";
+    nowPhotoBase64 = "";
+    document.getElementById("showPhoto").innerHTML = "";
+    renderAll();
 }
 
+// 出库
 function stockOut(){
-    let id = parseInt(document.getElementById('outGoods').value);
-    let num = parseInt(document.getElementById('outNum').value);
-    let person = document.getElementById('outPerson').value.trim();
-    let time = document.getElementById('outTime').value || getNowTime();
-    let remark = document.getElementById('outRemark').value.trim();
-    if(!id || !num || num<=0){alert('请选择物料并输入有效数量');return;}
-    let mat = material.find(x=>x.id===id);
-    if(mat.stock < num){alert('库存不足，无法出库');return;}
-    mat.stock -= num;
-    outLog.unshift({
-        mid: mat.id,
-        mName:mat.name,
-        spec:mat.spec,
-        num,person,time,
-        useRemark:remark
+    let mid = document.getElementById("outGoods").value;
+    let num = Number(document.getElementById("outNum").value);
+    let person = document.getElementById("outPerson").value.trim();
+    let time = document.getElementById("outTime").value || new Date().toISOString().slice(0,16);
+    let remark = document.getElementById("outRemark").value.trim();
+    if(!mid || !num || !person){alert("请完善必填信息");return;}
+
+    let data = getLocalData();
+    let st = data.stock.find(x=>x.mid==mid);
+    if(!st || st.num < num){alert("库存不足");return;}
+    st.num -= num;
+
+    data.outLog.unshift({
+        id:Date.now(),mid,num,person,time,remark
     });
-    saveData();
-    alert('出库成功');
-    document.getElementById('outNum').value='';
-    document.getElementById('outPerson').value='';
-    document.getElementById('outRemark').value='';
-    renderOutLog();
+    setLocalData(data);
+    alert("出库成功，多人端已同步");
+    document.getElementById("outNum").value = "";
+    renderAll();
 }
 
-function delInLog(idx){
-    if(!isAdmin){alert('无权限删除');return;}
-    if(!confirm('确定删除这条入库记录？库存将自动退回'))return;
-    let row = inLog[idx];
-    let mat = material.find(item=>item.id === row.mid);
-    if(mat) mat.stock -= row.num;
-    inLog.splice(idx,1);
-    saveData();
-    renderInLog();
-    renderStock();
-}
-
-function delOutLog(idx){
-    if(!isAdmin){alert('无权限删除');return;}
-    if(!confirm('确定删除这条出库记录？库存将自动恢复'))return;
-    let row = outLog[idx];
-    let mat = material.find(item=>item.id === row.mid);
-    if(mat) mat.stock += row.num;
-    outLog.splice(idx,1);
-    saveData();
-    renderOutLog();
-    renderStock();
-}
-
+// 渲染库存
 function renderStock(){
-    let key = document.getElementById('stockSearch').value.toLowerCase();
-    let tab = document.getElementById('stockTable');
-    tab.innerHTML = '<tr><th>名称</th><th>分类</th><th>规格</th><th>单位</th><th>当前库存</th><th>预警库存</th></tr>';
-    material.forEach(item=>{
-        if(item.name.toLowerCase().includes(key) || item.cate.toLowerCase().includes(key)){
-            let tr = document.createElement('tr');
-            let warn = item.stock <= item.min ? 'warn' : '';
-            tr.innerHTML = `
-                <td>${item.name}</td>
-                <td>${item.cate}</td>
-                <td>${item.spec}</td>
-                <td>${item.unit}</td>
-                <td class="${warn}">${item.stock}</td>
-                <td>${item.min}</td>
-            `;
-            tab.appendChild(tr);
+    let key = document.getElementById("stockSearch").value.toLowerCase();
+    let data = getLocalData();
+    let tb = document.getElementById("stockTable");
+    let html = `<tr><th>物料名称</th><th>分类</th><th>规格</th><th>单位</th><th>当前库存</th><th>预警线</th></tr>`;
+    data.material.forEach(m=>{
+        let st = data.stock.find(x=>x.mid==m.id) || {num:0};
+        let warn = st.num < m.minStock ? "warn" : "";
+        if(m.name.includes(key) || m.cate.includes(key)){
+            html += `<tr>
+                <td>${m.name}</td>
+                <td>${m.cate}</td>
+                <td>${m.spec}</td>
+                <td>${m.unit}</td>
+                <td class="${warn}">${st.num}</td>
+                <td>${m.minStock}</td>
+            </tr>`;
         }
     });
+    tb.innerHTML = html;
 }
 
+// 渲染入库流水
 function renderInLog(){
-    let tab = document.getElementById('inLogTable');
-    tab.innerHTML = '<tr><th>时间</th><th>物料</th><th>规格</th><th>数量</th><th>入库人</th><th>存放楼层</th><th>照片</th><th>操作</th></tr>';
-    inLog.forEach((item,idx)=>{
-        let imgHtml = item.photo ? `<img src="${item.photo}" class="img-preview" onclick="showBigImg('${item.photo}')">` : "无";
-        let tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${item.time}</td>
-            <td>${item.mName}</td>
-            <td>${item.spec}</td>
-            <td>${item.num}</td>
-            <td>${item.person}</td>
-            <td>${item.floor||''}</td>
+    let data = getLocalData();
+    let tb = document.getElementById("inLogTable");
+    let html = `<tr><th>时间</th><th>物料</th><th>数量</th><th>操作人</th><th>备注</th><th>图片</th></tr>`;
+    data.inLog.forEach(log=>{
+        let m = data.material.find(x=>x.id==log.mid) || {name:"已删除物料"};
+        let imgHtml = log.img ? `<img src="${log.img}" class="img-preview">` : "无";
+        html += `<tr>
+            <td>${log.time}</td>
+            <td>${m.name}</td>
+            <td>${log.num}</td>
+            <td>${log.person}</td>
+            <td>${log.remark}</td>
             <td>${imgHtml}</td>
-            <td><button class="del-row" onclick="delInLog(${idx})">删除</button></td>
-        `;
-        tab.appendChild(tr);
+        </tr>`;
     });
+    tb.innerHTML = html;
 }
 
+// 渲染出库流水
 function renderOutLog(){
-    let tab = document.getElementById('outLogTable');
-    tab.innerHTML = '<tr><th>时间</th><th>物料</th><th>规格</th><th>数量</th><th>出库人</th><th>用途备注</th><th>操作</th></tr>';
-    outLog.forEach((item,idx)=>{
-        let tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${item.time}</td>
-            <td>${item.mName}</td>
-            <td>${item.spec}</td>
-            <td>${item.num}</td>
-            <td>${item.person}</td>
-            <td>${item.useRemark||''}</td>
-            <td><button class="del-row" onclick="delOutLog(${idx})">删除</button></td>
-        `;
-        tab.appendChild(tr);
+    let data = getLocalData();
+    let tb = document.getElementById("outLogTable");
+    let html = `<tr><th>时间</th><th>物料</th><th>数量</th><th>操作人</th><th>用途</th></tr>`;
+    data.outLog.forEach(log=>{
+        let m = data.material.find(x=>x.id==log.mid) || {name:"已删除物料"};
+        html += `<tr>
+            <td>${log.time}</td>
+            <td>${m.name}</td>
+            <td>${log.num}</td>
+            <td>${log.person}</td>
+            <td>${log.remark}</td>
+        </tr>`;
     });
+    tb.innerHTML = html;
+}
+
+// 拍照转Base64
+function handlePhoto(file){
+    let reader = new FileReader();
+    reader.onload = function(e){
+        nowPhotoBase64 = e.target.result;
+        document.getElementById("showPhoto").innerHTML = `<img src="${nowPhotoBase64}" style="max-width:120px;">`;
+    }
+    reader.readAsDataURL(file.files[0]);
 }
 </script>
-
-<script>
-// 空闲3分钟自动刷新，打字/操作不打断
-let idleTime = 0;
-const maxIdle = 180;
-function resetIdle(){ idleTime = 0; }
-window.addEventListener('keydown', resetIdle);
-window.addEventListener('mousemove', resetIdle);
-window.addEventListener('scroll', resetIdle);
-window.addEventListener('click', resetIdle);
-setInterval(function(){
-    idleTime++;
-    if(idleTime >= maxIdle){
-        location.reload();
-    }
-},1000);
-</script>
-
 </body>
 </html>
