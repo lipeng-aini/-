@@ -38,7 +38,15 @@ th { background: #eee; }
 #photoInput { display: none; }
 .guest-mode .del-row { display: none !important; }
 .sync-tip { font-size: 12px; color: #28a745; text-align: center; margin-bottom: 10px; }
-@media print { .tab, .print-btn, .del-row, #box0, #box1, #box2 { display: none !important; } .box.show { display: block !important; } body { background: #fff; padding: 0; } .container { padding: 0; } }
+@media print {
+    .tab, .print-btn, .del-row, #box0, #box1, #box2 { display: none !important; }
+    .box.show { display: block !important; }
+    body { background: #fff; padding: 0; }
+    .container { padding: 0; }
+    /* 打印时表头每页重复 */
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; }
+}
 </style>
 </head>
 <body>
@@ -108,11 +116,13 @@ th { background: #eee; }
 
 <div class="box" id="box4">
 <h4>入库流水记录</h4>
+<button class="print-btn" onclick="window.print()">打印入库流水</button>
 <table id="inLogTable"></table>
 </div>
 
 <div class="box" id="box5">
 <h4>出库流水记录</h4>
+<button class="print-btn" onclick="window.print()">打印出库流水</button>
 <table id="outLogTable"></table>
 </div>
 </div>
