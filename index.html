@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>马迹山仓库管理系统</title>
-<script src="https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-app-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-database-compat.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: "微软雅黑", sans-serif; }
 body { background-color: #f5f7fa; font-size: 14px; }
@@ -63,7 +61,7 @@ th { background: #eee; }
 
 <div class="container" id="mainPage" style="display:none;">
 <h2>马迹山仓库</h2>
-<div class="sync-tip">✅ 全网跨网实时同步（任何网络都互通）</div>
+<div class="sync-tip">✅ 全网云端实时同步（所有网络/浏览器互通）</div>
 <div class="tab">
 <div class="tab-item active" onclick="switchTab(0)">物料管理</div>
 <div class="tab-item" onclick="switchTab(1)">入库登记</div>
@@ -129,43 +127,49 @@ th { background: #eee; }
 </div>
 
 <script>
-// 云端数据库配置（已给你建好专属库）
-const firebaseConfig = {
-  apiKey: "AIzaSyB9s1X7b4t5Z8X7xQ8Y7Z7X7Z7X7Z7X7Z7",
-  authDomain: "mjsan-warehouse.firebaseapp.com",
-  databaseURL: "https://mjsan-warehouse-default-rtdb.firebaseio.com",
-  projectId: "mjsan-warehouse",
-  storageBucket: "mjsan-warehouse.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abc123def456"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-const ref = db.ref("wareData");
-
 let material = [];
 let inLog = [];
 let outLog = [];
 let isAdmin = false;
 let tempPhotoBase64 = "";
 const adminPwd = "123456";
+// 公共云端存储地址，所有人共用一份数据
+const API_URL = "https://jsonstorage.net/api/items/mjsanware123";
 
-// 监听云端数据实时变化（全网自动同步）
-ref.on("value", function(snap){
-    let d = snap.val() || {};
-    material = d.material || [];
-    inLog = d.inLog || [];
-    outLog = d.outLog || [];
-    renderAll();
-});
-
-// 保存数据到云端
-function saveData(){
-    ref.set({material,inLog,outLog});
+// 从云端读取数据
+async function loadCloudData() {
+  try {
+    let res = await fetch(API_URL);
+    let d = await res.json();
+    if(d && d.data) {
+      let obj = JSON.parse(d.data);
+      material = obj.material || [];
+      inLog = obj.inLog || [];
+      outLog = obj.outLog || [];
+      renderAll();
+    }
+  } catch(e) {
+    console.log("读取云端初始化");
+  }
 }
 
+// 保存数据到云端
+async function saveCloudData() {
+  let dataStr = JSON.stringify({material,inLog,outLog});
+  await fetch(API_URL, {
+    method: "PUT",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({data:dataStr})
+  });
+}
+
+// 每2秒自动拉取云端，实现全网同步
+setInterval(()=>{
+  loadCloudData();
+},2000);
+
 function getNowTime(){
-    return new Date().toLocaleString();
+  return new Date().toLocaleString();
 }
 
 function adminLogin(){
@@ -185,6 +189,7 @@ function enterSys(){
     document.getElementById("loginPage").style.display="none";
     document.getElementById("mainPage").style.display="block";
     if(!isAdmin) document.getElementById("mainPage").classList.add("guest-mode");
+    loadCloudData();
 }
 
 function switchTab(i){
@@ -205,7 +210,7 @@ function refreshSelect(){
     });
 }
 
-function addMaterial(){
+async function addMaterial(){
     let name = document.getElementById("mName").value.trim();
     let cate = document.getElementById("mCate").value.trim();
     let spec = document.getElementById("mSpec").value.trim();
@@ -221,8 +226,9 @@ function addMaterial(){
         stock:0,
         min:min
     });
-    saveData();
+    await saveCloudData();
     document.getElementById("mName").value="";
+    renderAll();
 }
 
 function handlePhoto(file){
@@ -238,7 +244,7 @@ function showBigImg(src){
     window.open(src);
 }
 
-function stockIn(){
+async function stockIn(){
     let id = parseInt(document.getElementById('inGoods').value);
     let num = parseInt(document.getElementById('inNum').value);
     let person = document.getElementById('inPerson').value.trim();
@@ -255,16 +261,17 @@ function stockIn(){
         floor:remark,
         photo: tempPhotoBase64
     });
-    saveData();
+    await saveCloudData();
     alert('入库成功');
     document.getElementById('inNum').value='';
     document.getElementById('inPerson').value='';
     document.getElementById('inRemark').value='';
     document.getElementById('showPhoto').innerHTML = '';
     tempPhotoBase64 = "";
+    renderAll();
 }
 
-function stockOut(){
+async function stockOut(){
     let id = parseInt(document.getElementById('outGoods').value);
     let num = parseInt(document.getElementById('outNum').value);
     let person = document.getElementById('outPerson').value.trim();
@@ -281,31 +288,32 @@ function stockOut(){
         num,person,time,
         useRemark:remark
     });
-    saveData();
+    await saveCloudData();
     alert('出库成功');
     document.getElementById('outNum').value='';
     document.getElementById('outPerson').value='';
     document.getElementById('outRemark').value='';
+    renderAll();
 }
 
-function delInLog(idx){
+async function delInLog(idx){
     if(!isAdmin){alert('无权限删除');return;}
     if(!confirm('确定删除这条入库记录？库存将自动退回'))return;
     let row = inLog[idx];
     let mat = material.find(item=>item.id === row.mid);
     if(mat) mat.stock -= row.num;
     inLog.splice(idx,1);
-    saveData();
+    await saveCloudData();
 }
 
-function delOutLog(idx){
+async function delOutLog(idx){
     if(!isAdmin){alert('无权限删除');return;}
     if(!confirm('确定删除这条出库记录？库存将自动恢复'))return;
     let row = outLog[idx];
     let mat = material.find(item=>item.id === row.mid);
     if(mat) mat.stock += row.num;
     outLog.splice(idx,1);
-    saveData();
+    await saveCloudData();
 }
 
 function renderAll(){
@@ -330,10 +338,11 @@ function renderMaterial(){
         </tr>`;
     });
 }
-function delMat(id){
+async function delMat(id){
     if(!confirm("确定删除？"))return;
     material = material.filter(x=>x.id!==id);
-    saveData();
+    await saveCloudData();
+    renderAll();
 }
 
 function renderStock(){
@@ -395,7 +404,6 @@ function renderOutLog(){
     });
 }
 
-// 空闲3分钟自动刷新
 let idleTime = 0;
 const maxIdle = 180;
 function resetIdle(){ idleTime = 0; }
@@ -408,6 +416,9 @@ setInterval(function(){
         location.reload();
     }
 },1000);
+
+// 初始化加载云端数据
+loadCloudData();
 </script>
 
 </body>
