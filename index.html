@@ -3,89 +3,228 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>马迹山库存管理-多人同步版</title>
+<title>马迹山仓库管理系统</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{padding:10px;font-family:微软雅黑;background:#f5f5f5;font-size:14px;}
-.container{max-width:100%;margin:0 auto;background:#fff;padding:15px;border-radius:8px;}
-h2{text-align:center;margin-bottom:15px;color:#333;font-size:18px;}
-.tab{display:flex;border-bottom:1px solid #ccc;margin-bottom:15px;flex-wrap:wrap;}
-.tab-item{padding:8px 10px;cursor:pointer;font-size:13px;}
-.tab-item.active{border-bottom:2px solid #007bff;color:#007bff;font-weight:bold;}
-.box{display:none;}
-.box.show{display:block;}
-input,select,button{padding:8px;margin:3px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;max-width:280px;}
-button{background:#007bff;color:white;border:none;cursor:pointer;}
-.del-row{background:#dc3545;padding:4px 6px;font-size:12px;border:none;border-radius:3px;color:#fff;}
-.print-btn{background:#28a745;margin-bottom:10px;max-width:120px;}
-.photo-btn{background:#6c5ce7;max-width:280px;}
-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;}
-th,td{border:1px solid #ccc;padding:6px 2px;text-align:center;}
-th{background:#eee;}
-.warn{color:red;font-weight:bold;}
-.tip{font-size:12px;color:#666;margin-left:4px;}
-.search-box{width:100%;max-width:300px;margin-bottom:10px;}
-.img-preview{max-width:60px;height:auto;cursor:pointer;}
-#photoInput{display:none;}
-
-.login-wrap{
-    position:fixed;
-    top:0;left:0;
-    width:100%;height:100%;
-    background:#f5f5f5;
-    display:flex;
-    align-items:center;
-    justify-content:center;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "微软雅黑", sans-serif;
 }
-.login-box{
-    background:#fff;
-    padding:30px;
-    border-radius:10px;
-    width:90%;max-width:350px;
-    position:relative;
-    box-shadow:0 0 10px #ddd;
-}
-.login-logo{
-    position:absolute;
-    top:12px;
-    left:15px;
-    font-size:22px;
-    font-weight:bold;
-    color:#007bff;
-}
-.login-box h3{text-align:center;margin-bottom:20px;margin-top:10px;}
-.login-btn1{background:#6c5ce7;}
-.login-btn2{background:#28a745;}
-
-.guest-mode .del-row{display:none !important;}
-
-.sync-tip{
-    font-size:12px;
-    color:#28a745;
-    text-align:center;
-    margin-bottom:10px;
+body {
+    background-color: #f5f7fa;
+    font-size: 14px;
 }
 
-@media print{
-  .tab,.print-btn,.del-row,#box0,#box1,#box2,#box3{display:none !important;}
-  .box.show{display:block !important;}
-  body{background:#fff;padding:0;}
-  .container{padding:0;}
+/* 登录页面 整屏居中 */
+.login-wrap {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background: #f5f7fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.login-box {
+    width: 90%;
+    max-width: 320px;
+    background: #fff;
+    padding: 30px 25px;
+    border-radius: 12px;
+    box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+    text-align: center;
+}
+/* 仓库系统：蓝色 + 加粗 */
+.top-title {
+    font-size: 22px;
+    color: #007bff;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+/* 马迹山仓库登录：加粗 */
+.sub-title {
+    font-size: 16px;
+    color: #333;
+    font-weight: bold;
+    margin-bottom: 25px;
+}
+.login-box input {
+    width: 100%;
+    height: 44px;
+    padding: 0 15px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 18px;
+    outline: none;
+    text-align: center;
+}
+.login-box input:focus {
+    border-color: #007bff;
+}
+.login-box button {
+    width: 100%;
+    height: 44px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-bottom: 12px;
+}
+.btn-admin {
+    background-color: #28a745;
+    color: #fff;
+}
+.btn-guest {
+    background-color: #007bff;
+    color: #fff;
+}
+
+/* 主界面样式 */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+}
+h2 {
+    text-align: center;
+    margin-bottom: 15px;
+    color: #333;
+    font-size: 18px;
+}
+.tab {
+    display: flex;
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+.tab-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+}
+.tab-item.active {
+    border-bottom: 2px solid #007bff;
+    color: #007bff;
+    font-weight: bold;
+}
+.box {
+    display: none;
+}
+.box.show {
+    display: block;
+}
+input, select, button {
+    padding: 8px;
+    margin: 3px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    width: 100%;
+    max-width: 280px;
+}
+button {
+    background: #007bff;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+.del-row {
+    background: #dc3545;
+    padding: 4px 6px;
+    font-size: 12px;
+    border: none;
+    border-radius: 3px;
+    color: #fff;
+}
+.print-btn {
+    background: #28a745;
+    margin-bottom: 10px;
+    max-width: 120px;
+}
+.photo-btn {
+    background: #6c5ce7;
+    max-width: 280px;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 12px;
+}
+th, td {
+    border: 1px solid #ccc;
+    padding: 6px 2px;
+    text-align: center;
+}
+th {
+    background: #eee;
+}
+.warn {
+    color: red;
+    font-weight: bold;
+}
+.tip {
+    font-size: 12px;
+    color: #666;
+    margin-left: 4px;
+}
+.search-box {
+    width: 100%;
+    max-width: 300px;
+    margin-bottom: 10px;
+}
+.img-preview {
+    max-width: 60px;
+    height: auto;
+    cursor: pointer;
+}
+#photoInput {
+    display: none;
+}
+.guest-mode .del-row {
+    display: none !important;
+}
+.sync-tip {
+    font-size: 12px;
+    color: #28a745;
+    text-align: center;
+    margin-bottom: 10px;
+}
+@media print {
+    .tab, .print-btn, .del-row, #box0, #box1, #box2 {
+        display: none !important;
+    }
+    .box.show {
+        display: block !important;
+    }
+    body {
+        background: #fff;
+        padding: 0;
+    }
+    .container {
+        padding: 0;
+    }
 }
 </style>
 </head>
 <body>
 
+<!-- 登录区域 严格按你要求 -->
 <div class="login-wrap" id="loginPage">
     <div class="login-box">
-        <div class="login-logo">仓库</div>
-        <h3>马迹山仓库系统</h3>
-        <input type="password" id="pwdInput" placeholder="请输入管理员密码" value="123456">
-        <button class="login-btn2" onclick="adminLogin()">管理员登录</button>
-        <button class="login-btn1" onclick="guestLogin()">游客无密码进入</button>
+        <div class="top-title">仓库系统</div>
+        <div class="sub-title">马迹山仓库登录</div>
+        <input type="password" id="pwdInput" placeholder="请输入管理员密码">
+        <button class="btn-admin" onclick="adminLogin()">管理员登录</button>
+        <button class="btn-guest" onclick="guestLogin()">游客进入</button>
     </div>
 </div>
 
+<!-- 主页面 -->
 <div class="container" id="mainPage" style="display:none;">
     <h2>马迹山仓库</h2>
     <div class="sync-tip">✅ 已开启多人云端同步</div>
@@ -145,39 +284,36 @@ th{background:#eee;}
 
     <div class="box" id="box4">
         <h4>入库流水记录</h4>
+        <button class="print-btn" onclick="window.print()">打印入库流水</button>
         <table id="inLogTable"></table>
     </div>
 
     <div class="box" id="box5">
         <h4>出库流水记录</h4>
+        <button class="print-btn" onclick="window.print()">打印出库流水</button>
         <table id="outLogTable"></table>
     </div>
 </div>
 
 <script>
-// ========== 配置项（后续我教你改这里即可） ==========
-const GITHUB_RAW_URL = "https://raw.githubusercontent.com/你的用户名/仓库名/main/data.json";
-const GITHUB_TOKEN = "";
+const GITHUB_RAW_URL = "https://lipeng-aini.github.io/-/lipeng-aini/mjsan/main/data.json";
 const ADMIN_PWD = "123456";
 let isAdmin = false;
 let nowPhotoBase64 = "";
 
-// 初始化页面
 window.onload = function(){
     loadCloudData();
-    setInterval(loadCloudData, 5000); // 5秒自动同步一次
+    setInterval(loadCloudData, 5000);
 };
 
-// 从云端加载数据
 async function loadCloudData(){
     try{
         let res = await fetch(GITHUB_RAW_URL);
-        if(!res.ok) throw "无云端数据";
+        if(!res.ok) throw "";
         let data = await res.json();
         localStorage.setItem("stockData", JSON.stringify(data));
         renderAll();
     }catch(e){
-        // 首次加载用本地默认数据
         if(!localStorage.getItem("stockData")){
             let initData = {material:[], stock:[], inLog:[], outLog:[]};
             localStorage.setItem("stockData", JSON.stringify(initData));
@@ -185,15 +321,10 @@ async function loadCloudData(){
         renderAll();
     }
 }
-
-// 保存数据到云端
 async function saveCloudData(){
     let data = JSON.parse(localStorage.getItem("stockData"));
-    // 先用本地缓存兜底，后续配置好GitHub Token再开启云端覆盖
-    console.log("数据已本地保存，等待配置GitHub后自动同步云端");
+    console.log("本地已保存");
 }
-
-// 获取本地数据
 function getLocalData(){
     return JSON.parse(localStorage.getItem("stockData"));
 }
@@ -202,7 +333,7 @@ function setLocalData(obj){
     saveCloudData();
 }
 
-// 登录
+// 登录逻辑
 function adminLogin(){
     let pwd = document.getElementById("pwdInput").value;
     if(pwd === ADMIN_PWD){
@@ -241,39 +372,11 @@ function addMaterial(){
     let data = getLocalData();
     let id = Date.now();
     data.material.push({id,name,cate,spec,unit,minStock});
-    // 同步初始化库存
     data.stock.push({mid:id,num:0});
     setLocalData(data);
-    alert("添加成功，已自动云端同步");
+    alert("添加成功");
     document.getElementById("mName").value = "";
     renderAll();
-}
-
-// 渲染全部
-function renderAll(){
-    renderMaterial();
-    renderSelect();
-    renderStock();
-    renderInLog();
-    renderOutLog();
-}
-
-// 渲染物料列表
-function renderMaterial(){
-    let data = getLocalData();
-    let tb = document.getElementById("materialTable");
-    let html = `<tr><th>名称</th><th>分类</th><th>规格</th><th>单位</th><th>预警</th><th>操作</th></tr>`;
-    data.material.forEach(item=>{
-        html += `<tr>
-            <td>${item.name}</td>
-            <td>${item.cate}</td>
-            <td>${item.spec}</td>
-            <td>${item.unit}</td>
-            <td>${item.minStock}</td>
-            <td><button class="del-row" onclick="delMaterial(${item.id})">删除</button></td>
-        </tr>`;
-    });
-    tb.innerHTML = html;
 }
 
 // 删除物料
@@ -286,7 +389,7 @@ function delMaterial(id){
     renderAll();
 }
 
-// 下拉选择框
+// 下拉框渲染
 function renderSelect(){
     let data = getLocalData();
     let opt = "<option value=''>请选择物料</option>";
@@ -307,15 +410,13 @@ function stockIn(){
     if(!mid || !num || !person){alert("请完善必填信息");return;}
 
     let data = getLocalData();
-    // 更新库存
     let st = data.stock.find(x=>x.mid==mid);
     if(st) st.num += num;
-    // 入库记录
     data.inLog.unshift({
         id:Date.now(),mid,num,person,time,remark,img:nowPhotoBase64
     });
     setLocalData(data);
-    alert("入库成功，多人端已同步");
+    alert("入库成功");
     document.getElementById("inNum").value = "";
     nowPhotoBase64 = "";
     document.getElementById("showPhoto").innerHTML = "";
@@ -340,12 +441,54 @@ function stockOut(){
         id:Date.now(),mid,num,person,time,remark
     });
     setLocalData(data);
-    alert("出库成功，多人端已同步");
+    alert("出库成功");
     document.getElementById("outNum").value = "";
     renderAll();
 }
 
-// 渲染库存
+// 流水删除 库存联动
+function delInLog(id){
+    if(!confirm("确定删除该入库记录？库存会同步扣减！"))return;
+    let data = getLocalData();
+    let log = data.inLog.find(x=>x.id === id);
+    if(log){
+        let st = data.stock.find(x=>x.mid == log.mid);
+        if(st) st.num -= log.num;
+    }
+    data.inLog = data.inLog.filter(item=>item.id!==id);
+    setLocalData(data);
+    renderAll();
+}
+function delOutLog(id){
+    if(!confirm("确定删除该出库记录？库存会同步恢复！"))return;
+    let data = getLocalData();
+    let log = data.outLog.find(x=>x.id === id);
+    if(log){
+        let st = data.stock.find(x=>x.mid == log.mid);
+        if(st) st.num += log.num;
+    }
+    data.outLog = data.outLog.filter(item=>item.id!==id);
+    setLocalData(data);
+    renderAll();
+}
+
+// 全部渲染
+function renderMaterial(){
+    let data = getLocalData();
+    let tb = document.getElementById("materialTable");
+    let html = `<tr><th>名称</th><th>分类</th><th>规格</th><th>单位</th><th>预警</th><th>操作</th></tr>`;
+    data.material.forEach(item=>{
+        html += `<tr>
+            <td>${item.name}</td>
+            <td>${item.cate}</td>
+            <td>${item.spec}</td>
+            <td>${item.unit}</td>
+            <td>${item.minStock}</td>
+            <td><button class="del-row" onclick="delMaterial(${item.id})">删除</button></td>
+        </tr>`;
+    });
+    tb.innerHTML = html;
+}
 function renderStock(){
     let key = document.getElementById("stockSearch").value.toLowerCase();
     let data = getLocalData();
@@ -367,12 +510,10 @@ function renderStock(){
     });
     tb.innerHTML = html;
 }
-
-// 渲染入库流水
 function renderInLog(){
     let data = getLocalData();
     let tb = document.getElementById("inLogTable");
-    let html = `<tr><th>时间</th><th>物料</th><th>数量</th><th>操作人</th><th>备注</th><th>图片</th></tr>`;
+    let html = `<tr><th>时间</th><th>物料</th><th>数量</th><th>操作人</th><th>备注</th><th>图片</th><th>操作</th></tr>`;
     data.inLog.forEach(log=>{
         let m = data.material.find(x=>x.id==log.mid) || {name:"已删除物料"};
         let imgHtml = log.img ? `<img src="${log.img}" class="img-preview">` : "无";
@@ -383,16 +524,15 @@ function renderInLog(){
             <td>${log.person}</td>
             <td>${log.remark}</td>
             <td>${imgHtml}</td>
+            <td><button class="del-row" onclick="delInLog(${log.id})">删除</button></td>
         </tr>`;
     });
     tb.innerHTML = html;
 }
-
-// 渲染出库流水
 function renderOutLog(){
     let data = getLocalData();
     let tb = document.getElementById("outLogTable");
-    let html = `<tr><th>时间</th><th>物料</th><th>数量</th><th>操作人</th><th>用途</th></tr>`;
+    let html = `<tr><th>时间</th><th>物料</th><th>数量</th><th>操作人</th><th>用途</th><th>操作</th></tr>`;
     data.outLog.forEach(log=>{
         let m = data.material.find(x=>x.id==log.mid) || {name:"已删除物料"};
         html += `<tr>
@@ -401,12 +541,20 @@ function renderOutLog(){
             <td>${log.num}</td>
             <td>${log.person}</td>
             <td>${log.remark}</td>
+            <td><button class="del-row" onclick="delOutLog(${log.id})">删除</button></td>
         </tr>`;
     });
     tb.innerHTML = html;
 }
+function renderAll(){
+    renderMaterial();
+    renderSelect();
+    renderStock();
+    renderInLog();
+    renderOutLog();
+}
 
-// 拍照转Base64
+// 拍照预览
 function handlePhoto(file){
     let reader = new FileReader();
     reader.onload = function(e){
